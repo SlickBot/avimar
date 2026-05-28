@@ -1,5 +1,7 @@
 package eu.slickbot.airnav.data.ais
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -34,10 +36,12 @@ data class Vessel(
 
 // ---------- Wire format (aisstream.io) ----------
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class AisStreamSubscription(
     @SerialName("APIKey") val apiKey: String,
     @SerialName("BoundingBoxes") val boundingBoxes: List<List<List<Double>>>,
+    @EncodeDefault
     @SerialName("FilterMessageTypes") val filterMessageTypes: List<String> = listOf(
         "PositionReport",
         "ShipStaticData",
