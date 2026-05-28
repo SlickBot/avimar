@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.slickbot.airnav.data.adsb.Aircraft
+import eu.slickbot.airnav.data.adsb.AircraftDetails
 import eu.slickbot.airnav.data.ais.Vessel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +25,7 @@ import eu.slickbot.airnav.data.ais.Vessel
 fun DetailSheet(
     selection: MapSelection,
     following: Boolean,
+    enrichment: AircraftDetails?,
     onFollowChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -52,7 +54,10 @@ fun DetailSheet(
             }
             HorizontalDivider()
             when (selection) {
-                is MapSelection.Plane -> PlaneDetails(selection.aircraft)
+                is MapSelection.Plane -> {
+                    PlaneDetails(selection.aircraft)
+                    enrichment?.let { EnrichmentRows(it) }
+                }
                 is MapSelection.Ship -> ShipDetails(selection.vessel)
             }
         }
@@ -91,6 +96,16 @@ private fun ShipDetails(v: Vessel) {
     v.trueHeadingDeg?.let { DetailRow("Heading", "${it.toInt()}°") }
     v.destination?.let { DetailRow("Destination", it) }
     DetailRow("Position", "${"%.4f".format(v.lat)}, ${"%.4f".format(v.lon)}")
+}
+
+@Composable
+private fun EnrichmentRows(details: AircraftDetails) {
+    HorizontalDivider()
+    details.manufacturer?.let { DetailRow("Manufacturer", it) }
+    details.model?.let { DetailRow("Model", it) }
+    details.owner?.let { DetailRow("Operator", it) }
+    details.countryName?.let { DetailRow("Country", it) }
+    details.registration?.let { DetailRow("Registration", it) }
 }
 
 @Composable

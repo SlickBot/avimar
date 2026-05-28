@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
+import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
@@ -58,6 +59,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val aisKey by viewModel.aisApiKey.collectAsState()
     val selection by viewModel.selection.collectAsState()
     val following by viewModel.isFollowing.collectAsState()
+    val enrichment by viewModel.planeEnrichment.collectAsState()
+    val onboardingSeen by viewModel.onboardingSeen.collectAsState()
 
     val locationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -128,9 +131,14 @@ fun MapScreen(modifier: Modifier = Modifier) {
         DetailSheet(
             selection = it,
             following = following,
+            enrichment = enrichment,
             onFollowChange = viewModel::setFollowing,
             onDismiss = viewModel::clearSelection,
         )
+    }
+
+    if (!onboardingSeen) {
+        WelcomeDialog(onDismiss = viewModel::markOnboardingSeen)
     }
 
     LaunchedEffect(webView, aircraft) {

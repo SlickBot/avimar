@@ -33,6 +33,10 @@ class SettingsRepository(private val context: Context) {
         prefs[KEY_TRAILS_ENABLED] ?: true
     }
 
+    val onboardingSeen: Flow<Boolean> = store.data.map { prefs ->
+        prefs[KEY_ONBOARDING_SEEN] ?: false
+    }
+
     suspend fun setAdsbProvider(provider: AdsbProvider) {
         store.edit { it[KEY_ADSB_PROVIDER] = provider.id }
     }
@@ -49,10 +53,15 @@ class SettingsRepository(private val context: Context) {
         store.edit { it[KEY_TRAILS_ENABLED] = enabled }
     }
 
+    suspend fun setOnboardingSeen(seen: Boolean) {
+        store.edit { it[KEY_ONBOARDING_SEEN] = seen }
+    }
+
     private companion object {
         val KEY_ADSB_PROVIDER: Preferences.Key<String> = stringPreferencesKey("adsb_provider")
         val KEY_TILE_STYLE: Preferences.Key<String> = stringPreferencesKey("tile_style")
         val KEY_AIS_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("ais_enabled")
         val KEY_TRAILS_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("trails_enabled")
+        val KEY_ONBOARDING_SEEN: Preferences.Key<Boolean> = booleanPreferencesKey("onboarding_seen")
     }
 }

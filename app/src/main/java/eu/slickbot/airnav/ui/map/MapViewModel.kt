@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
+import eu.slickbot.airnav.data.adsb.AircraftDetails
+import eu.slickbot.airnav.data.adsb.AircraftEnricher
 import eu.slickbot.airnav.data.ais.AisRepository
 import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.location.LatLon
@@ -27,9 +29,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -47,6 +52,7 @@ class MapViewModel(
     private val settings: SettingsRepository,
     private val secureStore: SecureKeyStore,
     private val locationProvider: LocationProvider,
+    private val enricher: AircraftEnricher,
 ) : ViewModel() {
 
     private val _viewport = MutableStateFlow<Viewport?>(null)
@@ -89,6 +95,12 @@ class MapViewModel(
     private val _following = MutableStateFlow(false)
     val isFollowing: StateFlow<Boolean> = _following.asStateFlow()
 
+    val onboardingSeen: StateFlow<Boolean> = settings.onboardingSeen.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = true, // assume seen until DataStore loads, so we don't flash the dialog
+    )
+
     val selection: StateFlow<MapSelection?> = combine(
         _selectedAircraftHex,
         _selectedVesselMmsi,
@@ -101,6 +113,17 @@ class MapViewModel(
             else -> null
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    val planeEnrichment: StateFlow<AircraftDetails?> = _selectedAircraftHex
+        .distinctUntilChanged()
+        .flatMapLatest { hex ->
+            if (hex == null) flowOf(null)
+            else flow {
+                emit(null)
+                emit(runCatching { enricher.lookup(hex) }.getOrNull())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private val _centerCommands = MutableSharedFlow<CenterCommand>(
         extraBufferCapacity = 4,
@@ -167,6 +190,10 @@ class MapViewModel(
         secureStore.setAisApiKey(key)
     }
 
+    fun markOnboardingSeen() {
+        viewModelScope.launch { settings.setOnboardingSeen(true) }
+    }
+
     fun selectAircraft(hex: String) {
         _selectedVesselMmsi.value = null
         _selectedAircraftHex.value = hex
@@ -222,6 +249,7 @@ class MapViewModel(
                 settings = SettingsRepository(appContext),
                 secureStore = SecureKeyStore(appContext),
                 locationProvider = LocationProvider(appContext),
+                enricher = AircraftEnricher(),
             ) as T
         }
     }
