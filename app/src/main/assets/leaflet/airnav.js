@@ -1,8 +1,43 @@
 (function () {
+    console.log('[airnav.js] starting, L=' + (typeof L));
     const map = L.map('map', {
         zoomControl: false,
         attributionControl: true,
     }).setView([45.801, 15.165], 6);
+    console.log('[airnav.js] map created, container size=' + map.getSize());
+
+    // Compose AndroidView constructs the WebView and calls loadUrl() before the view
+    // is measured, so #map starts at 0×0. Watch for it being resized once the
+    // AndroidView is actually placed in the tree, then tell Leaflet to recompute.
+    const mapEl = document.getElementById('map');
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(entries => {
+            const r = entries[0].contentRect;
+            console.log('[airnav.js] ResizeObserver: ' + r.width + 'x' + r.height);
+            map.invalidateSize();
+        }).observe(mapEl);
+    } else {
+        window.addEventListener('resize', () => {
+            console.log('[airnav.js] window.resize');
+            map.invalidateSize();
+        });
+    }
+
+    // Belt-and-braces fallback: poll the map element's measured size for a few
+    // seconds so we know whether the container ever gets a real height even if
+    // ResizeObserver / window.resize never fire.
+    let attempts = 0;
+    const poll = setInterval(() => {
+        attempts++;
+        const r = mapEl.getBoundingClientRect();
+        console.log('[airnav.js] poll t=' + (attempts * 200) + 'ms: rect=' + Math.round(r.width) + 'x' + Math.round(r.height) + ' leafletSize=' + map.getSize());
+        if (r.height > 0) {
+            map.invalidateSize();
+            clearInterval(poll);
+        } else if (attempts > 25) {
+            clearInterval(poll);
+        }
+    }, 200);
 
     // ---------- Tile layers ----------
     const tileLayers = {
@@ -27,20 +62,8 @@
 
     // ---------- Layers (order = z-order, lowest first) ----------
     const trailsLayer = L.layerGroup().addTo(map);
-    const aircraftLayer = L.markerClusterGroup({
-        maxClusterRadius: 60,
-        disableClusteringAtZoom: 10,
-        chunkedLoading: true,
-        spiderfyOnMaxZoom: false,
-        showCoverageOnHover: false,
-    }).addTo(map);
-    const vesselLayer = L.markerClusterGroup({
-        maxClusterRadius: 50,
-        disableClusteringAtZoom: 11,
-        chunkedLoading: true,
-        spiderfyOnMaxZoom: false,
-        showCoverageOnHover: false,
-    }).addTo(map);
+    const aircraftLayer = L.layerGroup().addTo(map);
+    const vesselLayer = L.layerGroup().addTo(map);
 
     const aircraftMarkers = new Map();   // hex  -> marker
     const aircraftHistory = new Map();   // hex  -> [[lat,lon], ...]
@@ -156,12 +179,18 @@
 
     // ---------- Viewport ----------
     function emitViewport() {
+        const sz = map.getSize();
+        if (sz.x <= 0 || sz.y <= 0) {
+            console.log('[airnav.js] emitViewport skipped, size=' + sz);
+            return;
+        }
         const c = map.getCenter();
         const b = map.getBounds();
         const ne = b.getNorthEast();
         const sw = b.getSouthWest();
         const meters = c.distanceTo(ne);
         const nm = Math.min(250, meters / 1852);
+        console.log('[airnav.js] emitViewport center=' + c.lat.toFixed(3) + ',' + c.lng.toFixed(3) + ' z=' + map.getZoom() + ' nm=' + nm.toFixed(1));
         if (window.AirnavBridge && window.AirnavBridge.onViewport) {
             window.AirnavBridge.onViewport(
                 c.lat, c.lng, nm, map.getZoom(),
@@ -169,7 +198,7 @@
             );
         }
     }
-    map.on('moveend', emitViewport);
+    map.on('moveend resize', emitViewport);
     map.whenReady(emitViewport);
 
     // ---------- Public API ----------

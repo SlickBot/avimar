@@ -13,3 +13,12 @@ local.properties
 *.aab
 *.keystore
 *.jks
+
+# kotlin
+.kotlin
+kotlin-js-store
+
+# ai
+.claude
+.serena
+docs/superpowers

@@ -63,7 +63,7 @@ class VesselEnricher(
         try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
-                response.body?.string()
+                response.body.string()
             }
         } catch (_: IOException) {
             null

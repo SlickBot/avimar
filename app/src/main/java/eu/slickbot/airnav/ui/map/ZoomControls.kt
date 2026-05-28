@@ -3,6 +3,7 @@ package eu.slickbot.airnav.ui.map
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -26,13 +27,15 @@ fun ZoomControls(
         shape = RoundedCornerShape(24.dp),
     ) {
         Column(
-            modifier = Modifier.padding(2.dp),
+            modifier = Modifier
+                .width(48.dp)
+                .padding(2.dp),
             verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
             IconButton(onClick = onZoomIn) {
                 Icon(Icons.Filled.Add, contentDescription = "Zoom in")
             }
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
             IconButton(onClick = onZoomOut) {
                 Icon(Icons.Filled.Remove, contentDescription = "Zoom out")
             }

@@ -21,6 +21,7 @@ import eu.slickbot.airnav.data.settings.SecureKeyStore
 import eu.slickbot.airnav.data.settings.SettingsRepository
 import kotlin.math.ceil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,7 +33,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -48,7 +48,7 @@ sealed interface MapSelection {
 
 data class CenterCommand(val lat: Double, val lon: Double, val zoom: Double?)
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MapViewModel(
     private val adsbRepo: AdsbRepository,
     private val aisRepo: AisRepository,
@@ -132,9 +132,8 @@ class MapViewModel(
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     val planeEnrichment: StateFlow<AircraftDetails?> = _selectedAircraftHex
-        .distinctUntilChanged()
         .flatMapLatest { hex ->
-            if (hex == null) flowOf(null)
+            if (hex == null) flowOf<AircraftDetails?>(null)
             else flow {
                 emit(null)
                 emit(runCatching { enricher.lookup(hex) }.getOrNull())
@@ -143,10 +142,9 @@ class MapViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val shipEnrichment: StateFlow<VesselDetails?> = _selectedVesselMmsi
-        .distinctUntilChanged()
         .flatMapLatest { mmsi ->
             if (mmsi == null) {
-                flowOf(null)
+                flowOf<VesselDetails?>(null)
             } else {
                 val imo = aisRepo.vessels.value.firstOrNull { it.mmsi == mmsi }?.imo
                 flow {

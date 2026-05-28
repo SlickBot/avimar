@@ -1,18 +1,23 @@
 package eu.slickbot.airnav.data.adsb
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNames
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Subset of the readsb / aircraft.json v2 schema shared by adsb.fi,
- * adsb.lol and airplanes.live. Unknown fields are ignored by the JSON parser.
+ * adsb.lol and airplanes.live. The aircraft list arrives under "ac" on
+ * readsb-spec endpoints and under "aircraft" on adsb.fi — accept both.
+ * Unknown fields are ignored by the JSON parser.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class ReadsbResponse(
-    @SerialName("ac") val aircraft: List<ReadsbAircraft> = emptyList(),
-    @SerialName("now") val nowMs: Long? = null,
+    @SerialName("ac") @JsonNames("aircraft") val aircraft: List<ReadsbAircraft> = emptyList(),
+    @SerialName("now") val nowSeconds: Double? = null,
     @SerialName("total") val total: Int? = null,
 )
 

@@ -7,10 +7,12 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.core.content.edit
 
 private const val FILE = "airnav_secure"
 private const val KEY_AIS = "ais_api_key"
 
+@Suppress("DEPRECATION")
 class SecureKeyStore(context: Context) {
 
     private val prefs by lazy {
@@ -36,8 +38,8 @@ class SecureKeyStore(context: Context) {
     }.distinctUntilChanged()
 
     fun setAisApiKey(value: String?) {
-        prefs.edit().apply {
-            if (value.isNullOrBlank()) remove(KEY_AIS) else putString(KEY_AIS, value.trim())
-        }.apply()
+        prefs.edit {
+          if (value.isNullOrBlank()) remove(KEY_AIS) else putString(KEY_AIS, value.trim())
+        }
     }
 }
