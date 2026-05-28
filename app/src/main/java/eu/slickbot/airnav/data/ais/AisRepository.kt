@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,12 +13,13 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Owns the AIS WebSocket lifecycle and a merged, MMSI-keyed cache of vessels.
- * Position reports update lat/lon/SOG/COG/heading; ShipStaticData fills in
- * name/IMO/callsign/type/destination.
+ * Owns the AIS WebSocket lifecycle, a merged MMSI-keyed cache of vessels,
+ * and a periodic prune that drops anything not updated within [vesselTtlMs].
  */
 class AisRepository(
     private val client: AisStreamClient = AisStreamClient(),
+    private val vesselTtlMs: Long = DEFAULT_TTL_MS,
+    private val pruneIntervalMs: Long = DEFAULT_PRUNE_INTERVAL_MS,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val cache = ConcurrentHashMap<Long, Vessel>()
@@ -26,11 +28,20 @@ class AisRepository(
     val vessels: StateFlow<List<Vessel>> = _vessels.asStateFlow()
 
     private var collector: Job? = null
+    private var pruneJob: Job? = null
 
     fun start(apiKey: String, bbox: BoundingBox) {
         if (collector == null) {
             collector = scope.launch {
                 client.messages.collect { envelope -> ingest(envelope) }
+            }
+        }
+        if (pruneJob == null) {
+            pruneJob = scope.launch {
+                while (true) {
+                    delay(pruneIntervalMs)
+                    pruneStale()
+                }
             }
         }
         client.start(apiKey, bbox)
@@ -42,6 +53,8 @@ class AisRepository(
         client.stop()
         collector?.cancel()
         collector = null
+        pruneJob?.cancel()
+        pruneJob = null
         cache.clear()
         _vessels.value = emptyList()
     }
@@ -83,5 +96,18 @@ class AisRepository(
         )
         cache[mmsi] = merged
         _vessels.value = cache.values.toList()
+    }
+
+    private fun pruneStale() {
+        val cutoff = System.currentTimeMillis() - vesselTtlMs
+        val expired = cache.entries.filter { it.value.updatedAtMs < cutoff }.map { it.key }
+        if (expired.isEmpty()) return
+        expired.forEach { cache.remove(it) }
+        _vessels.value = cache.values.toList()
+    }
+
+    private companion object {
+        const val DEFAULT_TTL_MS = 10 * 60_000L
+        const val DEFAULT_PRUNE_INTERVAL_MS = 60_000L
     }
 }

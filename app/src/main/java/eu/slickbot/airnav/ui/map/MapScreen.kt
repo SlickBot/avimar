@@ -1,6 +1,9 @@
 package eu.slickbot.airnav.ui.map
 
+import android.Manifest
 import android.webkit.WebView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.add
@@ -52,6 +57,13 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val aisEnabled by viewModel.aisEnabled.collectAsState()
     val aisKey by viewModel.aisApiKey.collectAsState()
     val selection by viewModel.selection.collectAsState()
+    val following by viewModel.isFollowing.collectAsState()
+
+    val locationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result ->
+        if (result.values.any { it }) viewModel.centerOnUser()
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         LeafletWebView(
@@ -71,26 +83,33 @@ fun MapScreen(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ProviderPicker(selected = provider, onSelect = viewModel::selectProvider)
-            Surface(
-                modifier = Modifier.clip(CircleShape),
-                color = Color(0xCC101018),
-                contentColor = Color(0xFFE6E6F0),
-                tonalElevation = 4.dp,
-            ) {
-                IconButton(onClick = { showSettings = true }) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
-                }
+            CircleButton(icon = Icons.Filled.Settings, contentDescription = "Settings") {
+                showSettings = true
             }
         }
 
-        TileStylePicker(
-            selected = tileStyle,
-            onSelect = viewModel::selectTileStyle,
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
                 .padding(12.dp),
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircleButton(icon = Icons.Filled.MyLocation, contentDescription = "Center on me") {
+                if (viewModel.hasLocationPermission()) {
+                    viewModel.centerOnUser()
+                } else {
+                    locationLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                        )
+                    )
+                }
+            }
+            TileStylePicker(selected = tileStyle, onSelect = viewModel::selectTileStyle)
+        }
     }
 
     if (showSettings) {
@@ -106,17 +125,20 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
 
     selection?.let {
-        DetailSheet(selection = it, onDismiss = viewModel::clearSelection)
+        DetailSheet(
+            selection = it,
+            following = following,
+            onFollowChange = viewModel::setFollowing,
+            onDismiss = viewModel::clearSelection,
+        )
     }
 
-    // Aircraft updates fire every 5s (polling-throttled).
     LaunchedEffect(webView, aircraft) {
         val wv = webView ?: return@LaunchedEffect
         val payload = aircraftToJson(aircraft).toString()
         wv.evaluateJavascript("window.airnav.updateAircraft($payload);", null)
     }
 
-    // Vessel updates can arrive 10+/s; throttle to ~2 Hz.
     LaunchedEffect(webView) {
         val wv = webView ?: return@LaunchedEffect
         viewModel.vessels.sample(500L).collect { list ->
@@ -133,6 +155,47 @@ fun MapScreen(modifier: Modifier = Modifier) {
     LaunchedEffect(webView, trailsEnabled) {
         val wv = webView ?: return@LaunchedEffect
         wv.evaluateJavascript("window.airnav.setTrailsEnabled($trailsEnabled);", null)
+    }
+
+    // One-shot center commands (locate-me button).
+    LaunchedEffect(webView) {
+        val wv = webView ?: return@LaunchedEffect
+        viewModel.centerCommands.collect { c ->
+            val zoomArg = c.zoom?.let { ", $it" } ?: ", null"
+            wv.evaluateJavascript("window.airnav.setCenter(${c.lat}, ${c.lon}$zoomArg);", null)
+        }
+    }
+
+    // Follow-selected loop: while following, pan to the selected entity.
+    LaunchedEffect(webView) {
+        val wv = webView ?: return@LaunchedEffect
+        combine(viewModel.isFollowing, viewModel.selection) { f, s -> f to s }
+            .collect { (follow, sel) ->
+                if (!follow || sel == null) return@collect
+                val (lat, lon) = when (sel) {
+                    is MapSelection.Plane -> sel.aircraft.lat to sel.aircraft.lon
+                    is MapSelection.Ship -> sel.vessel.lat to sel.vessel.lon
+                }
+                wv.evaluateJavascript("window.airnav.setCenter($lat, $lon, null);", null)
+            }
+    }
+}
+
+@Composable
+private fun CircleButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    Surface(
+        modifier = Modifier.clip(CircleShape),
+        color = Color(0xCC101018),
+        contentColor = Color(0xFFE6E6F0),
+        tonalElevation = 4.dp,
+    ) {
+        IconButton(onClick = onClick) {
+            Icon(icon, contentDescription = contentDescription)
+        }
     }
 }
 

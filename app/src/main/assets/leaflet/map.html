@@ -216,6 +216,14 @@
         window.airnav = {
             map: map,
 
+            setCenter: function (lat, lon, zoom) {
+                if (zoom != null) {
+                    map.setView([lat, lon], zoom, { animate: true });
+                } else {
+                    map.panTo([lat, lon], { animate: true });
+                }
+            },
+
             setTileStyle: function (name) {
                 const next = tileLayers[name];
                 if (!next || next === activeTileLayer) return;

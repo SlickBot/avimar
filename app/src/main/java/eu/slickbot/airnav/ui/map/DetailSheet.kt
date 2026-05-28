@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -22,6 +23,8 @@ import eu.slickbot.airnav.data.ais.Vessel
 @Composable
 fun DetailSheet(
     selection: MapSelection,
+    following: Boolean,
+    onFollowChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -32,6 +35,22 @@ fun DetailSheet(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = headerFor(selection),
+                    fontWeight = FontWeight.SemiBold,
+                )
+                FilterChip(
+                    selected = following,
+                    onClick = { onFollowChange(!following) },
+                    label = { Text(if (following) "Following" else "Follow") },
+                )
+            }
+            HorizontalDivider()
             when (selection) {
                 is MapSelection.Plane -> PlaneDetails(selection.aircraft)
                 is MapSelection.Ship -> ShipDetails(selection.vessel)
@@ -40,13 +59,15 @@ fun DetailSheet(
     }
 }
 
+private fun headerFor(selection: MapSelection): String = when (selection) {
+    is MapSelection.Plane -> selection.aircraft.callsign
+        ?: selection.aircraft.registration
+        ?: selection.aircraft.hex.uppercase()
+    is MapSelection.Ship -> selection.vessel.name ?: "MMSI ${selection.vessel.mmsi}"
+}
+
 @Composable
 private fun PlaneDetails(a: Aircraft) {
-    Text(
-        text = a.callsign ?: a.registration ?: a.hex.uppercase(),
-        fontWeight = FontWeight.SemiBold,
-    )
-    HorizontalDivider()
     DetailRow("ICAO", a.hex.uppercase())
     a.registration?.let { DetailRow("Registration", it) }
     a.type?.let { DetailRow("Type", it) }
@@ -60,11 +81,6 @@ private fun PlaneDetails(a: Aircraft) {
 
 @Composable
 private fun ShipDetails(v: Vessel) {
-    Text(
-        text = v.name ?: "MMSI ${v.mmsi}",
-        fontWeight = FontWeight.SemiBold,
-    )
-    HorizontalDivider()
     DetailRow("MMSI", v.mmsi.toString())
     v.callsign?.let { DetailRow("Callsign", it) }
     v.imo?.let { DetailRow("IMO", it.toString()) }

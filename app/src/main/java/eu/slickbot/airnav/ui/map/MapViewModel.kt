@@ -10,14 +10,20 @@ import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
 import eu.slickbot.airnav.data.ais.AisRepository
 import eu.slickbot.airnav.data.ais.Vessel
+import eu.slickbot.airnav.data.location.LatLon
+import eu.slickbot.airnav.data.location.LocationProvider
 import eu.slickbot.airnav.data.settings.SecureKeyStore
 import eu.slickbot.airnav.data.settings.SettingsRepository
 import kotlin.math.ceil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -32,12 +38,15 @@ sealed interface MapSelection {
     data class Ship(val vessel: Vessel) : MapSelection
 }
 
+data class CenterCommand(val lat: Double, val lon: Double, val zoom: Double?)
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapViewModel(
     private val adsbRepo: AdsbRepository,
     private val aisRepo: AisRepository,
     private val settings: SettingsRepository,
     private val secureStore: SecureKeyStore,
+    private val locationProvider: LocationProvider,
 ) : ViewModel() {
 
     private val _viewport = MutableStateFlow<Viewport?>(null)
@@ -77,6 +86,8 @@ class MapViewModel(
 
     private val _selectedAircraftHex = MutableStateFlow<String?>(null)
     private val _selectedVesselMmsi = MutableStateFlow<Long?>(null)
+    private val _following = MutableStateFlow(false)
+    val isFollowing: StateFlow<Boolean> = _following.asStateFlow()
 
     val selection: StateFlow<MapSelection?> = combine(
         _selectedAircraftHex,
@@ -90,6 +101,12 @@ class MapViewModel(
             else -> null
         }
     }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private val _centerCommands = MutableSharedFlow<CenterCommand>(
+        extraBufferCapacity = 4,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val centerCommands: SharedFlow<CenterCommand> = _centerCommands.asSharedFlow()
 
     init {
         // ADS-B polling loop.
@@ -109,7 +126,7 @@ class MapViewModel(
                 .collect { (vp, p) -> fetchAdsb(p, vp) }
         }
 
-        // AIS lifecycle: connect when (key set && AIS enabled), disconnect otherwise.
+        // AIS lifecycle.
         viewModelScope.launch {
             combine(
                 aisApiKey,
@@ -153,17 +170,31 @@ class MapViewModel(
     fun selectAircraft(hex: String) {
         _selectedVesselMmsi.value = null
         _selectedAircraftHex.value = hex
+        _following.value = false
     }
 
     fun selectVessel(mmsi: Long) {
         _selectedAircraftHex.value = null
         _selectedVesselMmsi.value = mmsi
+        _following.value = false
     }
 
     fun clearSelection() {
         _selectedAircraftHex.value = null
         _selectedVesselMmsi.value = null
+        _following.value = false
     }
+
+    fun setFollowing(on: Boolean) {
+        _following.value = on
+    }
+
+    fun centerOnUser() {
+        val fix: LatLon = locationProvider.lastKnown() ?: return
+        _centerCommands.tryEmit(CenterCommand(fix.lat, fix.lon, zoom = 9.0))
+    }
+
+    fun hasLocationPermission(): Boolean = locationProvider.hasPermission()
 
     private suspend fun fetchAdsb(provider: AdsbProvider, viewport: Viewport) {
         val radius = ceil(viewport.radiusNm).toInt().coerceAtLeast(1)
@@ -190,6 +221,7 @@ class MapViewModel(
                 aisRepo = AisRepository(),
                 settings = SettingsRepository(appContext),
                 secureStore = SecureKeyStore(appContext),
+                locationProvider = LocationProvider(appContext),
             ) as T
         }
     }
