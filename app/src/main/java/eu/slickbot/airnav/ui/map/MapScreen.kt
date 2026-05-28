@@ -1,10 +1,18 @@
 package eu.slickbot.airnav.ui.map
 
 import android.webkit.WebView
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -14,10 +22,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
+import eu.slickbot.airnav.data.ais.Vessel
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
@@ -30,8 +41,11 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val viewModel: MapViewModel = viewModel(factory = MapViewModel.Factory(appContext))
 
     var webView by remember { mutableStateOf<WebView?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
     val aircraft by viewModel.aircraft.collectAsState()
+    val vessels by viewModel.vessels.collectAsState()
     val provider by viewModel.provider.collectAsState()
+    val aisKey by viewModel.aisApiKey.collectAsState()
 
     Box(modifier = modifier.fillMaxSize()) {
         LeafletWebView(
@@ -40,13 +54,33 @@ fun MapScreen(modifier: Modifier = Modifier) {
             onReady = { webView = it },
         )
 
-        ProviderPicker(
-            selected = provider,
-            onSelect = viewModel::selectProvider,
+        Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .statusBarsPadding()
                 .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ProviderPicker(selected = provider, onSelect = viewModel::selectProvider)
+            Surface(
+                modifier = Modifier.clip(CircleShape),
+                color = Color(0xCC101018),
+                contentColor = Color(0xFFE6E6F0),
+                tonalElevation = 4.dp,
+            ) {
+                IconButton(onClick = { showSettings = true }) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                }
+            }
+        }
+    }
+
+    if (showSettings) {
+        SettingsDialog(
+            currentKey = aisKey,
+            onDismiss = { showSettings = false },
+            onSave = viewModel::setAisApiKey,
         )
     }
 
@@ -54,6 +88,12 @@ fun MapScreen(modifier: Modifier = Modifier) {
         val wv = webView ?: return@LaunchedEffect
         val payload = aircraftToJson(aircraft).toString()
         wv.evaluateJavascript("window.airnav.updateAircraft($payload);", null)
+    }
+
+    LaunchedEffect(webView, vessels) {
+        val wv = webView ?: return@LaunchedEffect
+        val payload = vesselsToJson(vessels).toString()
+        wv.evaluateJavascript("window.airnav.updateVessels($payload);", null)
     }
 }
 
@@ -71,6 +111,25 @@ private fun aircraftToJson(list: List<Aircraft>): JsonArray = buildJsonArray {
             a.trackDeg?.let { put("track", it) }
             a.squawk?.let { put("squawk", it) }
             a.category?.let { put("category", it) }
+        })
+    }
+}
+
+private fun vesselsToJson(list: List<Vessel>): JsonArray = buildJsonArray {
+    list.forEach { v ->
+        add(buildJsonObject {
+            put("mmsi", v.mmsi)
+            v.name?.let { put("name", it) }
+            v.callsign?.let { put("callsign", it) }
+            v.imo?.let { put("imo", it) }
+            put("lat", v.lat)
+            put("lon", v.lon)
+            v.sogKn?.let { put("sog", it) }
+            v.cogDeg?.let { put("cog", it) }
+            v.trueHeadingDeg?.let { put("heading", it) }
+            v.navStatus?.let { put("navStatus", it) }
+            v.shipType?.let { put("shipType", it) }
+            v.destination?.let { put("destination", it) }
         })
     }
 }
