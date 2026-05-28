@@ -53,6 +53,7 @@
     let showTrails = true;
     let aviationVisible = true;
     let maritimeVisible = true;
+    let selectionRing = null;
 
     // ---------- Aircraft ----------
     function planeSvg(track, color) {
@@ -210,6 +211,31 @@
                 if (!map.hasLayer(aircraftLayer)) aircraftLayer.addTo(map);
             } else if (map.hasLayer(aircraftLayer)) {
                 map.removeLayer(aircraftLayer);
+            }
+        },
+
+        setSelection: function (kind, lat, lon) {
+            const color = (kind === 'ship') ? '#4dd0e1' : '#6ec8ff';
+            if (selectionRing) {
+                selectionRing.setLatLng([lat, lon]);
+                selectionRing.setStyle({ color: color });
+            } else {
+                selectionRing = L.circleMarker([lat, lon], {
+                    radius: 18,
+                    color: color,
+                    weight: 2,
+                    fillOpacity: 0.0,
+                    dashArray: '4 4',
+                    interactive: false,
+                });
+                selectionRing.addTo(map);
+            }
+        },
+
+        clearSelection: function () {
+            if (selectionRing) {
+                map.removeLayer(selectionRing);
+                selectionRing = null;
             }
         },
 

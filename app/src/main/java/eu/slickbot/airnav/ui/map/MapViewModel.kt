@@ -1,10 +1,10 @@
 package eu.slickbot.airnav.ui.map
 
-import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import eu.slickbot.airnav.AppContainer
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
@@ -278,23 +278,18 @@ class MapViewModel(
         }
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        aisRepo.shutdown()
-    }
-
-    class Factory(private val appContext: Context) : ViewModelProvider.Factory {
+    class Factory(private val container: AppContainer) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             require(modelClass.isAssignableFrom(MapViewModel::class.java))
             return MapViewModel(
-                adsbRepo = AdsbRepository(),
-                aisRepo = AisRepository(),
-                settings = SettingsRepository(appContext),
-                secureStore = SecureKeyStore(appContext),
-                locationProvider = LocationProvider(appContext),
-                enricher = AircraftEnricher(),
-                vesselEnricher = VesselEnricher(),
+                adsbRepo = container.adsbRepository,
+                aisRepo = container.aisRepository,
+                settings = container.settingsRepository,
+                secureStore = container.secureKeyStore,
+                locationProvider = container.locationProvider,
+                enricher = container.aircraftEnricher,
+                vesselEnricher = container.vesselEnricher,
             ) as T
         }
     }

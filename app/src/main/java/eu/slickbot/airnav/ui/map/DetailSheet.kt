@@ -61,6 +61,17 @@ fun DetailSheet(
             Header(selection, following, onFollowChange)
             when (selection) {
                 is MapSelection.Plane -> {
+                    planeEnrichment?.photoUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = "Aircraft photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(14.dp)),
+                        )
+                    }
                     Section("Live ADS-B") { PlaneDetails(selection.aircraft) }
                     planeEnrichment?.let {
                         Section("Aircraft") { PlaneEnrichmentRows(it) }
