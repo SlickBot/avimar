@@ -1,7 +1,10 @@
 package eu.slickbot.airnav.ui.map
 
 import android.webkit.WebView
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -9,7 +12,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
 import kotlinx.serialization.json.JsonArray
@@ -19,18 +25,30 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 @Composable
-fun MapScreen(
-    modifier: Modifier = Modifier,
-    viewModel: MapViewModel = viewModel(),
-) {
+fun MapScreen(modifier: Modifier = Modifier) {
+    val appContext = LocalContext.current.applicationContext
+    val viewModel: MapViewModel = viewModel(factory = MapViewModel.Factory(appContext))
+
     var webView by remember { mutableStateOf<WebView?>(null) }
     val aircraft by viewModel.aircraft.collectAsState()
+    val provider by viewModel.provider.collectAsState()
 
-    LeafletWebView(
-        modifier = modifier.fillMaxSize(),
-        onViewportChanged = viewModel::onViewportChanged,
-        onReady = { webView = it },
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        LeafletWebView(
+            modifier = Modifier.fillMaxSize(),
+            onViewportChanged = viewModel::onViewportChanged,
+            onReady = { webView = it },
+        )
+
+        ProviderPicker(
+            selected = provider,
+            onSelect = viewModel::selectProvider,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .statusBarsPadding()
+                .padding(12.dp),
+        )
+    }
 
     LaunchedEffect(webView, aircraft) {
         val wv = webView ?: return@LaunchedEffect

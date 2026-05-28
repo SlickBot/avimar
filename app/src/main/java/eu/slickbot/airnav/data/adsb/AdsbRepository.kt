@@ -11,14 +11,22 @@ class AdsbRepository(
     private val client: OkHttpClient = defaultClient(),
     private val json: Json = defaultJson(),
 ) {
-    private val adsbFi: AdsbFiApi by lazy {
-        Retrofit.Builder()
-            .baseUrl(AdsbProvider.AdsbFi.baseUrl)
-            .client(client)
-            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
-            .build()
-            .create(AdsbFiApi::class.java)
+    private val converter by lazy {
+        json.asConverterFactory("application/json".toMediaType())
     }
+
+    private val adsbFi: AdsbFiApi by lazy { build(AdsbProvider.AdsbFi.baseUrl) }
+    private val adsbLol: AdsbLolApi by lazy { build(AdsbProvider.AdsbLol.baseUrl) }
+    private val airplanesLive: AirplanesLiveApi by lazy {
+        build(AdsbProvider.AirplanesLive.baseUrl)
+    }
+
+    private inline fun <reified T> build(baseUrl: String): T = Retrofit.Builder()
+        .baseUrl(baseUrl)
+        .client(client)
+        .addConverterFactory(converter)
+        .build()
+        .create(T::class.java)
 
     suspend fun fetch(
         provider: AdsbProvider,
@@ -29,8 +37,8 @@ class AdsbRepository(
         val capped = radiusNm.coerceIn(1, provider.maxRadiusNm)
         val response = when (provider) {
             AdsbProvider.AdsbFi -> adsbFi.aircraftInRange(lat, lon, capped)
-            AdsbProvider.AdsbLol,
-            AdsbProvider.AirplanesLive -> error("Provider $provider not wired yet")
+            AdsbProvider.AdsbLol -> adsbLol.aircraftInRange(lat, lon, capped)
+            AdsbProvider.AirplanesLive -> airplanesLive.aircraftInRange(lat, lon, capped)
         }
         return response.aircraft.mapNotNull { it.toAircraftOrNull() }
     }
