@@ -71,7 +71,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val aisKey by viewModel.aisApiKey.collectAsState()
     val selection by viewModel.selection.collectAsState()
     val following by viewModel.isFollowing.collectAsState()
-    val enrichment by viewModel.planeEnrichment.collectAsState()
+    val planeEnrichment by viewModel.planeEnrichment.collectAsState()
+    val shipEnrichment by viewModel.shipEnrichment.collectAsState()
     val onboardingSeen by viewModel.onboardingSeen.collectAsState()
 
     val hits by remember(searchQuery, aircraft, vessels) {
@@ -183,7 +184,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
         DetailSheet(
             selection = it,
             following = following,
-            enrichment = enrichment,
+            planeEnrichment = planeEnrichment,
+            shipEnrichment = shipEnrichment,
             onFollowChange = viewModel::setFollowing,
             onDismiss = viewModel::clearSelection,
         )

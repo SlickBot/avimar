@@ -3,8 +3,10 @@ package eu.slickbot.airnav.ui.map
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -14,18 +16,23 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.AircraftDetails
 import eu.slickbot.airnav.data.ais.Vessel
+import eu.slickbot.airnav.data.ais.info.VesselDetails
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailSheet(
     selection: MapSelection,
     following: Boolean,
-    enrichment: AircraftDetails?,
+    planeEnrichment: AircraftDetails?,
+    shipEnrichment: VesselDetails?,
     onFollowChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -56,9 +63,23 @@ fun DetailSheet(
             when (selection) {
                 is MapSelection.Plane -> {
                     PlaneDetails(selection.aircraft)
-                    enrichment?.let { EnrichmentRows(it) }
+                    planeEnrichment?.let { PlaneEnrichmentRows(it) }
                 }
-                is MapSelection.Ship -> ShipDetails(selection.vessel)
+                is MapSelection.Ship -> {
+                    shipEnrichment?.photoUrl?.let { url ->
+                        AsyncImage(
+                            model = url,
+                            contentDescription = "Vessel photo",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(16f / 9f)
+                                .clip(RoundedCornerShape(12.dp)),
+                        )
+                    }
+                    ShipDetails(selection.vessel)
+                    shipEnrichment?.let { ShipEnrichmentRows(it) }
+                }
             }
         }
     }
@@ -99,13 +120,26 @@ private fun ShipDetails(v: Vessel) {
 }
 
 @Composable
-private fun EnrichmentRows(details: AircraftDetails) {
+private fun PlaneEnrichmentRows(details: AircraftDetails) {
     HorizontalDivider()
     details.manufacturer?.let { DetailRow("Manufacturer", it) }
     details.model?.let { DetailRow("Model", it) }
     details.owner?.let { DetailRow("Operator", it) }
     details.countryName?.let { DetailRow("Country", it) }
     details.registration?.let { DetailRow("Registration", it) }
+}
+
+@Composable
+private fun ShipEnrichmentRows(details: VesselDetails) {
+    if (!details.hasMeaningfulData() && details.callsign == null && details.flag == null) return
+    HorizontalDivider()
+    details.shipType?.let { DetailRow("Type", it) }
+    details.flag?.let { DetailRow("Flag", it) }
+    details.buildYear?.let { DetailRow("Built", it.toString()) }
+    details.grossTonnage?.let { DetailRow("Gross tonnage", "$it") }
+    details.lengthMeters?.let { DetailRow("Length", "${"%.0f".format(it)} m") }
+    details.beamMeters?.let { DetailRow("Beam", "${"%.0f".format(it)} m") }
+    details.draughtMeters?.let { DetailRow("Draught", "${"%.1f".format(it)} m") }
 }
 
 @Composable

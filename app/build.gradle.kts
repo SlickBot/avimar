@@ -68,6 +68,8 @@ dependencies {
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.security.crypto)
+    implementation(libs.jsoup)
+    implementation(libs.coil.compose)
 
     debugImplementation(libs.androidx.ui.tooling)
 

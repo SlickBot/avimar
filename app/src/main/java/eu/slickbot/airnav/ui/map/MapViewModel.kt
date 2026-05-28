@@ -12,6 +12,8 @@ import eu.slickbot.airnav.data.adsb.AircraftDetails
 import eu.slickbot.airnav.data.adsb.AircraftEnricher
 import eu.slickbot.airnav.data.ais.AisRepository
 import eu.slickbot.airnav.data.ais.Vessel
+import eu.slickbot.airnav.data.ais.info.VesselDetails
+import eu.slickbot.airnav.data.ais.info.VesselEnricher
 import eu.slickbot.airnav.data.location.LatLon
 import eu.slickbot.airnav.data.location.LocationProvider
 import eu.slickbot.airnav.data.settings.SecureKeyStore
@@ -53,6 +55,7 @@ class MapViewModel(
     private val secureStore: SecureKeyStore,
     private val locationProvider: LocationProvider,
     private val enricher: AircraftEnricher,
+    private val vesselEnricher: VesselEnricher,
 ) : ViewModel() {
 
     private val _viewport = MutableStateFlow<Viewport?>(null)
@@ -133,6 +136,21 @@ class MapViewModel(
             else flow {
                 emit(null)
                 emit(runCatching { enricher.lookup(hex) }.getOrNull())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val shipEnrichment: StateFlow<VesselDetails?> = _selectedVesselMmsi
+        .distinctUntilChanged()
+        .flatMapLatest { mmsi ->
+            if (mmsi == null) {
+                flowOf(null)
+            } else {
+                val imo = aisRepo.vessels.value.firstOrNull { it.mmsi == mmsi }?.imo
+                flow {
+                    emit(null)
+                    emit(runCatching { vesselEnricher.lookup(mmsi, imo) }.getOrNull())
+                }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -274,6 +292,7 @@ class MapViewModel(
                 secureStore = SecureKeyStore(appContext),
                 locationProvider = LocationProvider(appContext),
                 enricher = AircraftEnricher(),
+                vesselEnricher = VesselEnricher(),
             ) as T
         }
     }
