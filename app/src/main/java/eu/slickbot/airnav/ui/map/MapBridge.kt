@@ -4,10 +4,12 @@ import android.webkit.JavascriptInterface
 
 /**
  * Bridge exposed to JavaScript as `window.AirnavBridge`. Leaflet calls into
- * this on map move/zoom so Kotlin knows what the current viewport is.
+ * this on map move/zoom and on marker taps.
  */
 class MapBridge(
-    private val onViewportChanged: (Viewport) -> Unit,
+    private val viewportListener: (Viewport) -> Unit,
+    private val aircraftClickListener: (String) -> Unit,
+    private val vesselClickListener: (Long) -> Unit,
 ) {
     @JavascriptInterface
     fun onViewport(
@@ -20,7 +22,7 @@ class MapBridge(
         maxLat: Double,
         maxLon: Double,
     ) {
-        onViewportChanged(
+        viewportListener(
             Viewport(
                 centerLat = lat,
                 centerLon = lon,
@@ -32,5 +34,15 @@ class MapBridge(
                 maxLon = maxLon,
             )
         )
+    }
+
+    @JavascriptInterface
+    fun onAircraftClick(hex: String) {
+        aircraftClickListener(hex)
+    }
+
+    @JavascriptInterface
+    fun onVesselClick(mmsi: Long) {
+        vesselClickListener(mmsi)
     }
 }

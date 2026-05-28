@@ -29,12 +29,15 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.sample
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
+@OptIn(FlowPreview::class)
 @Composable
 fun MapScreen(modifier: Modifier = Modifier) {
     val appContext = LocalContext.current.applicationContext
@@ -43,14 +46,19 @@ fun MapScreen(modifier: Modifier = Modifier) {
     var webView by remember { mutableStateOf<WebView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     val aircraft by viewModel.aircraft.collectAsState()
-    val vessels by viewModel.vessels.collectAsState()
     val provider by viewModel.provider.collectAsState()
+    val tileStyle by viewModel.tileStyle.collectAsState()
+    val trailsEnabled by viewModel.trailsEnabled.collectAsState()
+    val aisEnabled by viewModel.aisEnabled.collectAsState()
     val aisKey by viewModel.aisApiKey.collectAsState()
+    val selection by viewModel.selection.collectAsState()
 
     Box(modifier = modifier.fillMaxSize()) {
         LeafletWebView(
             modifier = Modifier.fillMaxSize(),
             onViewportChanged = viewModel::onViewportChanged,
+            onAircraftClick = viewModel::selectAircraft,
+            onVesselClick = viewModel::selectVessel,
             onReady = { webView = it },
         )
 
@@ -74,26 +82,57 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 }
             }
         }
+
+        TileStylePicker(
+            selected = tileStyle,
+            onSelect = viewModel::selectTileStyle,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
+                .padding(12.dp),
+        )
     }
 
     if (showSettings) {
         SettingsDialog(
             currentKey = aisKey,
+            aisEnabled = aisEnabled,
+            trailsEnabled = trailsEnabled,
             onDismiss = { showSettings = false },
-            onSave = viewModel::setAisApiKey,
+            onSaveKey = viewModel::setAisApiKey,
+            onAisEnabledChange = viewModel::setAisEnabled,
+            onTrailsEnabledChange = viewModel::setTrailsEnabled,
         )
     }
 
+    selection?.let {
+        DetailSheet(selection = it, onDismiss = viewModel::clearSelection)
+    }
+
+    // Aircraft updates fire every 5s (polling-throttled).
     LaunchedEffect(webView, aircraft) {
         val wv = webView ?: return@LaunchedEffect
         val payload = aircraftToJson(aircraft).toString()
         wv.evaluateJavascript("window.airnav.updateAircraft($payload);", null)
     }
 
-    LaunchedEffect(webView, vessels) {
+    // Vessel updates can arrive 10+/s; throttle to ~2 Hz.
+    LaunchedEffect(webView) {
         val wv = webView ?: return@LaunchedEffect
-        val payload = vesselsToJson(vessels).toString()
-        wv.evaluateJavascript("window.airnav.updateVessels($payload);", null)
+        viewModel.vessels.sample(500L).collect { list ->
+            val payload = vesselsToJson(list).toString()
+            wv.evaluateJavascript("window.airnav.updateVessels($payload);", null)
+        }
+    }
+
+    LaunchedEffect(webView, tileStyle) {
+        val wv = webView ?: return@LaunchedEffect
+        wv.evaluateJavascript("window.airnav.setTileStyle('${tileStyle.id}');", null)
+    }
+
+    LaunchedEffect(webView, trailsEnabled) {
+        val wv = webView ?: return@LaunchedEffect
+        wv.evaluateJavascript("window.airnav.setTrailsEnabled($trailsEnabled);", null)
     }
 }
 

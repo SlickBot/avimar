@@ -27,6 +27,11 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+sealed interface MapSelection {
+    data class Plane(val aircraft: Aircraft) : MapSelection
+    data class Ship(val vessel: Vessel) : MapSelection
+}
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapViewModel(
     private val adsbRepo: AdsbRepository,
@@ -46,11 +51,45 @@ class MapViewModel(
         initialValue = AdsbProvider.AdsbFi,
     )
 
+    val tileStyle: StateFlow<TileStyle> = settings.tileStyle.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = TileStyle.CartoDark,
+    )
+
+    val aisEnabled: StateFlow<Boolean> = settings.aisEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = true,
+    )
+
+    val trailsEnabled: StateFlow<Boolean> = settings.trailsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = true,
+    )
+
     val aisApiKey: StateFlow<String?> = secureStore.aisApiKey.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
         initialValue = null,
     )
+
+    private val _selectedAircraftHex = MutableStateFlow<String?>(null)
+    private val _selectedVesselMmsi = MutableStateFlow<Long?>(null)
+
+    val selection: StateFlow<MapSelection?> = combine(
+        _selectedAircraftHex,
+        _selectedVesselMmsi,
+        _aircraft,
+        aisRepo.vessels,
+    ) { hex, mmsi, planes, ships ->
+        when {
+            hex != null -> planes.firstOrNull { it.hex == hex }?.let { MapSelection.Plane(it) }
+            mmsi != null -> ships.firstOrNull { it.mmsi == mmsi }?.let { MapSelection.Ship(it) }
+            else -> null
+        }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         // ADS-B polling loop.
@@ -70,15 +109,18 @@ class MapViewModel(
                 .collect { (vp, p) -> fetchAdsb(p, vp) }
         }
 
-        // AIS lifecycle: connect when key is set, disconnect when cleared.
+        // AIS lifecycle: connect when (key set && AIS enabled), disconnect otherwise.
         viewModelScope.launch {
-            combine(aisApiKey, _viewport.filterNotNull().debounce(400)) { key, vp -> key to vp }
-                .collect { (key, vp) ->
-                    val bbox = vp.boundingBox()
-                    if (key.isNullOrBlank()) {
+            combine(
+                aisApiKey,
+                aisEnabled,
+                _viewport.filterNotNull().debounce(400),
+            ) { key, on, vp -> Triple(key, on, vp) }
+                .collect { (key, on, vp) ->
+                    if (key.isNullOrBlank() || !on) {
                         aisRepo.stop()
                     } else {
-                        aisRepo.start(key, bbox)
+                        aisRepo.start(key, vp.boundingBox())
                     }
                 }
         }
@@ -92,8 +134,35 @@ class MapViewModel(
         viewModelScope.launch { settings.setAdsbProvider(provider) }
     }
 
+    fun selectTileStyle(style: TileStyle) {
+        viewModelScope.launch { settings.setTileStyle(style) }
+    }
+
+    fun setAisEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setAisEnabled(enabled) }
+    }
+
+    fun setTrailsEnabled(enabled: Boolean) {
+        viewModelScope.launch { settings.setTrailsEnabled(enabled) }
+    }
+
     fun setAisApiKey(key: String?) {
         secureStore.setAisApiKey(key)
+    }
+
+    fun selectAircraft(hex: String) {
+        _selectedVesselMmsi.value = null
+        _selectedAircraftHex.value = hex
+    }
+
+    fun selectVessel(mmsi: Long) {
+        _selectedAircraftHex.value = null
+        _selectedVesselMmsi.value = mmsi
+    }
+
+    fun clearSelection() {
+        _selectedAircraftHex.value = null
+        _selectedVesselMmsi.value = null
     }
 
     private suspend fun fetchAdsb(provider: AdsbProvider, viewport: Viewport) {

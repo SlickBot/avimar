@@ -13,9 +13,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 fun LeafletWebView(
     modifier: Modifier = Modifier,
     onViewportChanged: (Viewport) -> Unit,
+    onAircraftClick: (String) -> Unit,
+    onVesselClick: (Long) -> Unit,
     onReady: (WebView) -> Unit,
 ) {
-    val bridge = remember(onViewportChanged) { MapBridge(onViewportChanged) }
+    val bridge = remember(onViewportChanged, onAircraftClick, onVesselClick) {
+        MapBridge(onViewportChanged, onAircraftClick, onVesselClick)
+    }
     AndroidView(
         modifier = modifier,
         factory = { context ->
