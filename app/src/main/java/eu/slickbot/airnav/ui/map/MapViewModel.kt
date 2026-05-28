@@ -84,6 +84,18 @@ class MapViewModel(
         initialValue = true,
     )
 
+    val aviationVisible: StateFlow<Boolean> = settings.aviationVisible.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = true,
+    )
+
+    val maritimeVisible: StateFlow<Boolean> = settings.maritimeVisible.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.Eagerly,
+        initialValue = true,
+    )
+
     val aisApiKey: StateFlow<String?> = secureStore.aisApiKey.stateIn(
         scope = viewModelScope,
         started = SharingStarted.Eagerly,
@@ -186,6 +198,14 @@ class MapViewModel(
         viewModelScope.launch { settings.setTrailsEnabled(enabled) }
     }
 
+    fun setAviationVisible(visible: Boolean) {
+        viewModelScope.launch { settings.setAviationVisible(visible) }
+    }
+
+    fun setMaritimeVisible(visible: Boolean) {
+        viewModelScope.launch { settings.setMaritimeVisible(visible) }
+    }
+
     fun setAisApiKey(key: String?) {
         secureStore.setAisApiKey(key)
     }
@@ -219,6 +239,10 @@ class MapViewModel(
     fun centerOnUser() {
         val fix: LatLon = locationProvider.lastKnown() ?: return
         _centerCommands.tryEmit(CenterCommand(fix.lat, fix.lon, zoom = 9.0))
+    }
+
+    fun centerOn(lat: Double, lon: Double, zoom: Double? = null) {
+        _centerCommands.tryEmit(CenterCommand(lat, lon, zoom))
     }
 
     fun hasLocationPermission(): Boolean = locationProvider.hasPermission()

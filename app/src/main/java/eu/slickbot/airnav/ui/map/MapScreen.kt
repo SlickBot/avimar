@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -20,6 +22,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +37,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
+import eu.slickbot.airnav.ui.search.SearchHit
+import eu.slickbot.airnav.ui.search.SearchOverlay
+import eu.slickbot.airnav.ui.search.searchHits
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
@@ -51,16 +57,26 @@ fun MapScreen(modifier: Modifier = Modifier) {
 
     var webView by remember { mutableStateOf<WebView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+
     val aircraft by viewModel.aircraft.collectAsState()
+    val vessels by viewModel.vessels.collectAsState()
     val provider by viewModel.provider.collectAsState()
     val tileStyle by viewModel.tileStyle.collectAsState()
     val trailsEnabled by viewModel.trailsEnabled.collectAsState()
     val aisEnabled by viewModel.aisEnabled.collectAsState()
+    val aviationVisible by viewModel.aviationVisible.collectAsState()
+    val maritimeVisible by viewModel.maritimeVisible.collectAsState()
     val aisKey by viewModel.aisApiKey.collectAsState()
     val selection by viewModel.selection.collectAsState()
     val following by viewModel.isFollowing.collectAsState()
     val enrichment by viewModel.planeEnrichment.collectAsState()
     val onboardingSeen by viewModel.onboardingSeen.collectAsState()
+
+    val hits by remember(searchQuery, aircraft, vessels) {
+        derivedStateOf { searchHits(searchQuery, aircraft, vessels) }
+    }
 
     val locationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
@@ -99,6 +115,9 @@ fun MapScreen(modifier: Modifier = Modifier) {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            CircleButton(icon = Icons.Filled.Search, contentDescription = "Search") {
+                showSearch = true
+            }
             CircleButton(icon = Icons.Filled.MyLocation, contentDescription = "Center on me") {
                 if (viewModel.hasLocationPermission()) {
                     viewModel.centerOnUser()
@@ -113,6 +132,35 @@ fun MapScreen(modifier: Modifier = Modifier) {
             }
             TileStylePicker(selected = tileStyle, onSelect = viewModel::selectTileStyle)
         }
+
+        if (showSearch) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 64.dp, start = 12.dp, end = 12.dp)
+                    .fillMaxWidth(),
+            ) {
+                SearchOverlay(
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    hits = hits,
+                    onHitTap = { hit ->
+                        when (hit) {
+                            is SearchHit.Plane -> viewModel.selectAircraft(hit.aircraft.hex)
+                            is SearchHit.Ship -> viewModel.selectVessel(hit.vessel.mmsi)
+                        }
+                        viewModel.centerOn(hit.lat, hit.lon, zoom = 11.0)
+                        showSearch = false
+                        searchQuery = ""
+                    },
+                    onDismiss = {
+                        showSearch = false
+                        searchQuery = ""
+                    },
+                )
+            }
+        }
     }
 
     if (showSettings) {
@@ -120,10 +168,14 @@ fun MapScreen(modifier: Modifier = Modifier) {
             currentKey = aisKey,
             aisEnabled = aisEnabled,
             trailsEnabled = trailsEnabled,
+            aviationVisible = aviationVisible,
+            maritimeVisible = maritimeVisible,
             onDismiss = { showSettings = false },
             onSaveKey = viewModel::setAisApiKey,
             onAisEnabledChange = viewModel::setAisEnabled,
             onTrailsEnabledChange = viewModel::setTrailsEnabled,
+            onAviationVisibleChange = viewModel::setAviationVisible,
+            onMaritimeVisibleChange = viewModel::setMaritimeVisible,
         )
     }
 
@@ -165,7 +217,16 @@ fun MapScreen(modifier: Modifier = Modifier) {
         wv.evaluateJavascript("window.airnav.setTrailsEnabled($trailsEnabled);", null)
     }
 
-    // One-shot center commands (locate-me button).
+    LaunchedEffect(webView, aviationVisible) {
+        val wv = webView ?: return@LaunchedEffect
+        wv.evaluateJavascript("window.airnav.setAviationVisible($aviationVisible);", null)
+    }
+
+    LaunchedEffect(webView, maritimeVisible) {
+        val wv = webView ?: return@LaunchedEffect
+        wv.evaluateJavascript("window.airnav.setMaritimeVisible($maritimeVisible);", null)
+    }
+
     LaunchedEffect(webView) {
         val wv = webView ?: return@LaunchedEffect
         viewModel.centerCommands.collect { c ->
@@ -174,7 +235,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    // Follow-selected loop: while following, pan to the selected entity.
     LaunchedEffect(webView) {
         val wv = webView ?: return@LaunchedEffect
         combine(viewModel.isFollowing, viewModel.selection) { f, s -> f to s }

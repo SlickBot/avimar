@@ -37,6 +37,14 @@ class SettingsRepository(private val context: Context) {
         prefs[KEY_ONBOARDING_SEEN] ?: false
     }
 
+    val aviationVisible: Flow<Boolean> = store.data.map { prefs ->
+        prefs[KEY_AVIATION_VISIBLE] ?: true
+    }
+
+    val maritimeVisible: Flow<Boolean> = store.data.map { prefs ->
+        prefs[KEY_MARITIME_VISIBLE] ?: true
+    }
+
     suspend fun setAdsbProvider(provider: AdsbProvider) {
         store.edit { it[KEY_ADSB_PROVIDER] = provider.id }
     }
@@ -57,11 +65,21 @@ class SettingsRepository(private val context: Context) {
         store.edit { it[KEY_ONBOARDING_SEEN] = seen }
     }
 
+    suspend fun setAviationVisible(visible: Boolean) {
+        store.edit { it[KEY_AVIATION_VISIBLE] = visible }
+    }
+
+    suspend fun setMaritimeVisible(visible: Boolean) {
+        store.edit { it[KEY_MARITIME_VISIBLE] = visible }
+    }
+
     private companion object {
         val KEY_ADSB_PROVIDER: Preferences.Key<String> = stringPreferencesKey("adsb_provider")
         val KEY_TILE_STYLE: Preferences.Key<String> = stringPreferencesKey("tile_style")
         val KEY_AIS_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("ais_enabled")
         val KEY_TRAILS_ENABLED: Preferences.Key<Boolean> = booleanPreferencesKey("trails_enabled")
         val KEY_ONBOARDING_SEEN: Preferences.Key<Boolean> = booleanPreferencesKey("onboarding_seen")
+        val KEY_AVIATION_VISIBLE: Preferences.Key<Boolean> = booleanPreferencesKey("aviation_visible")
+        val KEY_MARITIME_VISIBLE: Preferences.Key<Boolean> = booleanPreferencesKey("maritime_visible")
     }
 }

@@ -26,10 +26,14 @@ fun SettingsDialog(
     currentKey: String?,
     aisEnabled: Boolean,
     trailsEnabled: Boolean,
+    aviationVisible: Boolean,
+    maritimeVisible: Boolean,
     onDismiss: () -> Unit,
     onSaveKey: (String?) -> Unit,
     onAisEnabledChange: (Boolean) -> Unit,
     onTrailsEnabledChange: (Boolean) -> Unit,
+    onAviationVisibleChange: (Boolean) -> Unit,
+    onMaritimeVisibleChange: (Boolean) -> Unit,
 ) {
     var draft by remember(currentKey) { mutableStateOf(currentKey.orEmpty()) }
 
@@ -48,16 +52,10 @@ fun SettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 HorizontalDivider()
-                ToggleRow(
-                    label = "AIS enabled",
-                    checked = aisEnabled,
-                    onCheckedChange = onAisEnabledChange,
-                )
-                ToggleRow(
-                    label = "Trails",
-                    checked = trailsEnabled,
-                    onCheckedChange = onTrailsEnabledChange,
-                )
+                ToggleRow("AIS enabled", aisEnabled, onAisEnabledChange)
+                ToggleRow("Show aircraft", aviationVisible, onAviationVisibleChange)
+                ToggleRow("Show vessels", maritimeVisible, onMaritimeVisibleChange)
+                ToggleRow("Trails", trailsEnabled, onTrailsEnabledChange)
             }
         },
         confirmButton = {
