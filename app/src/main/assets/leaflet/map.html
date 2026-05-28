@@ -10,6 +10,21 @@
     <style>
         html, body, #map { margin: 0; padding: 0; height: 100%; width: 100%; background: #1a1a24; }
         .leaflet-container { background: #1a1a24; }
+        .ac-icon { will-change: transform; }
+        .ac-icon svg { display: block; }
+        .ac-label {
+            position: absolute;
+            top: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            font: 10px/12px -apple-system, system-ui, sans-serif;
+            color: #e6e6f0;
+            background: rgba(16, 16, 24, 0.7);
+            padding: 1px 4px;
+            border-radius: 3px;
+            white-space: nowrap;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -30,10 +45,81 @@
             subdomains: 'abcd',
         }).addTo(map);
 
+        const aircraftLayer = L.layerGroup().addTo(map);
+        const aircraftMarkers = new Map(); // hex -> marker
+
+        function planeSvg(track, color) {
+            const t = Math.round(track || 0);
+            return (
+                '<div class="ac-icon" style="transform: rotate(' + t + 'deg);">' +
+                '<svg width="20" height="20" viewBox="-12 -12 24 24">' +
+                '<path d="M0,-10 L2,-3 L10,0 L10,2 L2,1 L1,8 L4,10 L4,11 L0,9.5 L-4,11 L-4,10 L-1,8 L-2,1 L-10,2 L-10,0 L-2,-3 Z" ' +
+                'fill="' + color + '" stroke="#101018" stroke-width="0.5" stroke-linejoin="round"/>' +
+                '</svg></div>'
+            );
+        }
+
+        function colorFor(a) {
+            // Crude altitude band coloring. Refined in a later phase.
+            const alt = a.alt;
+            if (alt == null) return '#9e9e9e';
+            if (alt < 5000) return '#ff5252';
+            if (alt < 15000) return '#ffb300';
+            if (alt < 30000) return '#4fc3f7';
+            return '#b39ddb';
+        }
+
+        function labelFor(a) {
+            return a.callsign || a.registration || a.hex.toUpperCase();
+        }
+
+        function makeIcon(a) {
+            return L.divIcon({
+                className: '',
+                html: planeSvg(a.track, colorFor(a)) +
+                      '<div class="ac-label">' + labelFor(a) + '</div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10],
+            });
+        }
+
+        function emitViewport() {
+            const c = map.getCenter();
+            const ne = map.getBounds().getNorthEast();
+            const meters = c.distanceTo(ne);
+            const nm = Math.min(250, meters / 1852);
+            if (window.AirnavBridge && window.AirnavBridge.onViewport) {
+                window.AirnavBridge.onViewport(c.lat, c.lng, nm, map.getZoom());
+            }
+        }
+
+        map.on('moveend', emitViewport);
+        map.whenReady(emitViewport);
+
         window.airnav = {
             map: map,
-            // placeholder hooks; populated in later phases
-            updateAircraft: function (_json) {},
+            updateAircraft: function (list) {
+                const seen = new Set();
+                for (let i = 0; i < list.length; i++) {
+                    const a = list[i];
+                    seen.add(a.hex);
+                    const existing = aircraftMarkers.get(a.hex);
+                    if (existing) {
+                        existing.setLatLng([a.lat, a.lon]);
+                        existing.setIcon(makeIcon(a));
+                    } else {
+                        const m = L.marker([a.lat, a.lon], { icon: makeIcon(a) });
+                        m.addTo(aircraftLayer);
+                        aircraftMarkers.set(a.hex, m);
+                    }
+                }
+                aircraftMarkers.forEach((m, hex) => {
+                    if (!seen.has(hex)) {
+                        aircraftLayer.removeLayer(m);
+                        aircraftMarkers.delete(hex);
+                    }
+                });
+            },
             updateVessels: function (_json) {},
         };
     })();

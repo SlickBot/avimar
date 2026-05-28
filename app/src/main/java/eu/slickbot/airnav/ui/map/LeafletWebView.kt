@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 
@@ -11,8 +12,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 @Composable
 fun LeafletWebView(
     modifier: Modifier = Modifier,
-    onReady: (WebView) -> Unit = {},
+    onViewportChanged: (Viewport) -> Unit,
+    onReady: (WebView) -> Unit,
 ) {
+    val bridge = remember(onViewportChanged) { MapBridge(onViewportChanged) }
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -24,6 +27,7 @@ fun LeafletWebView(
                     allowContentAccess = false
                     setGeolocationEnabled(false)
                 }
+                addJavascriptInterface(bridge, "AirnavBridge")
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView, url: String?) {
                         onReady(view)
