@@ -9,16 +9,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -29,13 +26,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
+import eu.slickbot.airnav.ui.common.CircleIconButton
 import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
 import eu.slickbot.airnav.ui.search.SearchHit
 import eu.slickbot.airnav.ui.search.SearchOverlay
@@ -69,6 +65,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val aviationVisible by viewModel.aviationVisible.collectAsState()
     val maritimeVisible by viewModel.maritimeVisible.collectAsState()
     val aisKey by viewModel.aisApiKey.collectAsState()
+    val aisConnection by viewModel.aisConnection.collectAsState()
     val selection by viewModel.selection.collectAsState()
     val following by viewModel.isFollowing.collectAsState()
     val planeEnrichment by viewModel.planeEnrichment.collectAsState()
@@ -98,70 +95,76 @@ fun MapScreen(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .statusBarsPadding()
-                .padding(12.dp),
+                .padding(start = 12.dp, top = 12.dp, end = 12.dp)
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ProviderPicker(selected = provider, onSelect = viewModel::selectProvider)
-            CircleButton(icon = Icons.Filled.Settings, contentDescription = "Settings") {
-                showSettings = true
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            CircleButton(icon = Icons.Filled.Search, contentDescription = "Search") {
-                showSearch = true
-            }
-            CircleButton(icon = Icons.Filled.MyLocation, contentDescription = "Center on me") {
-                if (viewModel.hasLocationPermission()) {
-                    viewModel.centerOnUser()
-                } else {
-                    locationLauncher.launch(
-                        arrayOf(
-                            Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                        )
-                    )
-                }
-            }
+            CircleIconButton(
+                icon = Icons.Filled.Search,
+                contentDescription = "Search",
+                onClick = { showSearch = true },
+            )
+            Box(modifier = Modifier.weight(1f))
             TileStylePicker(selected = tileStyle, onSelect = viewModel::selectTileStyle)
+            CircleIconButton(
+                icon = Icons.Filled.MyLocation,
+                contentDescription = "Center on me",
+                onClick = {
+                    if (viewModel.hasLocationPermission()) {
+                        viewModel.centerOnUser()
+                    } else {
+                        locationLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_COARSE_LOCATION,
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                            )
+                        )
+                    }
+                },
+            )
+            CircleIconButton(
+                icon = Icons.Filled.Tune,
+                contentDescription = "Settings",
+                onClick = { showSettings = true },
+            )
         }
 
-        if (showSearch) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .statusBarsPadding()
-                    .padding(top = 64.dp, start = 12.dp, end = 12.dp)
-                    .fillMaxWidth(),
-            ) {
-                SearchOverlay(
-                    query = searchQuery,
-                    onQueryChange = { searchQuery = it },
-                    hits = hits,
-                    onHitTap = { hit ->
-                        when (hit) {
-                            is SearchHit.Plane -> viewModel.selectAircraft(hit.aircraft.hex)
-                            is SearchHit.Ship -> viewModel.selectVessel(hit.vessel.mmsi)
-                        }
-                        viewModel.centerOn(hit.lat, hit.lon, zoom = 11.0)
-                        showSearch = false
-                        searchQuery = ""
-                    },
-                    onDismiss = {
-                        showSearch = false
-                        searchQuery = ""
-                    },
-                )
-            }
-        }
+        SearchOverlay(
+            visible = showSearch,
+            query = searchQuery,
+            onQueryChange = { searchQuery = it },
+            hits = hits,
+            onHitTap = { hit ->
+                when (hit) {
+                    is SearchHit.Plane -> viewModel.selectAircraft(hit.aircraft.hex)
+                    is SearchHit.Ship -> viewModel.selectVessel(hit.vessel.mmsi)
+                }
+                viewModel.centerOn(hit.lat, hit.lon, zoom = 11.0)
+                showSearch = false
+                searchQuery = ""
+            },
+            onDismiss = {
+                showSearch = false
+                searchQuery = ""
+            },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 72.dp, start = 12.dp, end = 12.dp),
+        )
+
+        StatusBar(
+            aircraftCount = aircraft.size,
+            vesselCount = vessels.size,
+            aisConnection = aisConnection,
+            aisEnabled = aisEnabled && !aisKey.isNullOrBlank(),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 14.dp),
+        )
     }
 
     if (showSettings) {
@@ -248,24 +251,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
                 }
                 wv.evaluateJavascript("window.airnav.setCenter($lat, $lon, null);", null)
             }
-    }
-}
-
-@Composable
-private fun CircleButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-) {
-    Surface(
-        modifier = Modifier.clip(CircleShape),
-        color = Color(0xCC101018),
-        contentColor = Color(0xFFE6E6F0),
-        tonalElevation = 4.dp,
-    ) {
-        IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = contentDescription)
-        }
     }
 }
 

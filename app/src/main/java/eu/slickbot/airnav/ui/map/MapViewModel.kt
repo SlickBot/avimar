@@ -10,6 +10,7 @@ import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
 import eu.slickbot.airnav.data.adsb.AircraftDetails
 import eu.slickbot.airnav.data.adsb.AircraftEnricher
+import eu.slickbot.airnav.data.ais.AisConnectionState
 import eu.slickbot.airnav.data.ais.AisRepository
 import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.ais.info.VesselDetails
@@ -62,6 +63,7 @@ class MapViewModel(
     private val _aircraft = MutableStateFlow<List<Aircraft>>(emptyList())
     val aircraft: StateFlow<List<Aircraft>> = _aircraft.asStateFlow()
     val vessels: StateFlow<List<Vessel>> = aisRepo.vessels
+    val aisConnection: StateFlow<AisConnectionState> = aisRepo.connectionState
 
     val provider: StateFlow<AdsbProvider> = settings.adsbProvider.stateIn(
         scope = viewModelScope,

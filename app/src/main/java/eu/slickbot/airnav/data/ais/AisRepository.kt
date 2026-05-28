@@ -26,6 +26,7 @@ class AisRepository(
 
     private val _vessels = MutableStateFlow<List<Vessel>>(emptyList())
     val vessels: StateFlow<List<Vessel>> = _vessels.asStateFlow()
+    val connectionState: StateFlow<AisConnectionState> = client.connectionState
 
     private var collector: Job? = null
     private var pruneJob: Job? = null

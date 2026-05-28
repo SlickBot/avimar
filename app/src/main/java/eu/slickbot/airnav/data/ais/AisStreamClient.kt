@@ -8,7 +8,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -44,6 +47,9 @@ class AisStreamClient(
     private val _messages = MutableSharedFlow<AisEnvelope>(extraBufferCapacity = 256)
     internal val messages: SharedFlow<AisEnvelope> = _messages
 
+    private val _connectionState = MutableStateFlow(AisConnectionState.Disconnected)
+    val connectionState: StateFlow<AisConnectionState> = _connectionState.asStateFlow()
+
     fun start(apiKey: String, bbox: BoundingBox) {
         this.apiKey = apiKey
         this.bbox = bbox
@@ -66,6 +72,7 @@ class AisStreamClient(
         reconnectJob = null
         webSocket?.close(1000, "client stopping")
         webSocket = null
+        _connectionState.value = AisConnectionState.Disconnected
     }
 
     fun shutdown() {
@@ -75,6 +82,7 @@ class AisStreamClient(
 
     private fun openSocket() {
         if (apiKey.isNullOrBlank()) return
+        _connectionState.value = AisConnectionState.Connecting
         val request = Request.Builder()
             .url("wss://stream.aisstream.io/v0/stream")
             .header("Origin", "http://stream.aisstream.io")
@@ -84,6 +92,7 @@ class AisStreamClient(
             override fun onOpen(webSocket: WebSocket, response: Response) {
                 Log.i(TAG, "WebSocket open")
                 backoffMs = MIN_BACKOFF_MS
+                _connectionState.value = AisConnectionState.Connected
                 sendSubscription()
             }
 
@@ -101,12 +110,14 @@ class AisStreamClient(
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 Log.i(TAG, "WebSocket closed: $code $reason")
                 this@AisStreamClient.webSocket = null
+                _connectionState.value = AisConnectionState.Disconnected
                 if (running) scheduleReconnect()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.w(TAG, "WebSocket failure: ${t.message}")
                 this@AisStreamClient.webSocket = null
+                _connectionState.value = AisConnectionState.Disconnected
                 if (running) scheduleReconnect()
             }
         })
