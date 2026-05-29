@@ -51,10 +51,15 @@ class AppContainer(applicationContext: Context) {
     coerceInputValues = true
   }
 
-  val adsbFiProvider: AdsbFiProvider = AdsbFiProvider(fetcher = jsonFetcher, json = adsbJson)
-  val adsbLolProvider: AdsbLolProvider = AdsbLolProvider(fetcher = jsonFetcher, json = adsbJson)
+  // minInterval = ZERO disables the per-provider throwing rate limiter: the
+  // MapViewModel poll loop is the single cadence controller, and a pan-triggered
+  // refetch must NOT be dropped (that left markers ~1 poll-interval stale).
+  val adsbFiProvider: AdsbFiProvider =
+    AdsbFiProvider(fetcher = jsonFetcher, json = adsbJson, minInterval = Duration.ZERO)
+  val adsbLolProvider: AdsbLolProvider =
+    AdsbLolProvider(fetcher = jsonFetcher, json = adsbJson, minInterval = Duration.ZERO)
   val airplanesLiveProvider: AirplanesLiveProvider =
-    AirplanesLiveProvider(fetcher = jsonFetcher, json = adsbJson)
+    AirplanesLiveProvider(fetcher = jsonFetcher, json = adsbJson, minInterval = Duration.ZERO)
 
   val typeDesignatorCatalog: TypeDesignatorCatalog = TypeDesignatorCatalog(adsbJson)
   val icaoDescriptionCodeDecoder: IcaoDescriptionCodeDecoder = IcaoDescriptionCodeDecoder()

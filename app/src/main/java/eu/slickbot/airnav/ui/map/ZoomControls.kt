@@ -18,27 +18,27 @@ import eu.slickbot.airnav.ui.common.OverlayCard
 
 @Composable
 fun ZoomControls(
-    onZoomIn: () -> Unit,
-    onZoomOut: () -> Unit,
-    modifier: Modifier = Modifier,
+  onZoomIn: () -> Unit,
+  onZoomOut: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-    OverlayCard(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+  OverlayCard(
+    modifier = modifier,
+    shape = RoundedCornerShape(24.dp),
+  ) {
+    Column(
+      modifier = Modifier
+        .width(48.dp)
+        .padding(2.dp),
+      verticalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .width(48.dp)
-                .padding(2.dp),
-            verticalArrangement = Arrangement.spacedBy(0.dp),
-        ) {
-            IconButton(onClick = onZoomIn) {
-                Icon(Icons.Filled.Add, contentDescription = "Zoom in")
-            }
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
-            IconButton(onClick = onZoomOut) {
-                Icon(Icons.Filled.Remove, contentDescription = "Zoom out")
-            }
-        }
+      IconButton(onClick = onZoomIn) {
+        Icon(Icons.Filled.Add, contentDescription = "Zoom in")
+      }
+      HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+      IconButton(onClick = onZoomOut) {
+        Icon(Icons.Filled.Remove, contentDescription = "Zoom out")
+      }
     }
+  }
 }

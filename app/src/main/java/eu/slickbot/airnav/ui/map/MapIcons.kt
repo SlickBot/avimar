@@ -2,126 +2,109 @@ package eu.slickbot.airnav.ui.map
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color as AndroidColor
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
+import androidx.core.graphics.PathParser
 import org.maplibre.android.maps.Style
+import kotlin.math.max
 
 /**
- * Generates white-silhouette icon bitmaps (one per [AircraftIconCategory] /
- * [VesselIconCategory]) and registers them with a MapLibre [Style] as SDF
- * images. Registering as SDF lets the SymbolLayer tint each instance with the
- * data-driven `icon-color` property while a single image is shared across all
- * markers of that category.
- *
- * Shapes are authored in a [-13, 13] design space (nose / bow pointing up so
- * `icon-rotate` from track/heading degrees works directly) and rasterized to a
- * small bitmap.
+ * Generates per-category COLORED icon bitmaps and registers them (one image per
+ * ADS-B category / vessel category, keyed by [AdsbCategory.code] /
+ * [VesselIconCategory.image]). Color is baked into the bitmap — registered
+ * non-SDF — because SDF + data-driven `icon-color` renders solid silhouettes
+ * washed-out. Aircraft use the tar1090 silhouette paths ported from
+ * drone-swarm-v9 (`shapes.ts`); vessels use simple polygons. Bitmaps are drawn
+ * nose/bow-up so `icon-rotate` from track/heading works directly.
  */
 object MapIcons {
 
-  private const val SIZE = 48
-  private val SCALE = (SIZE / 2f - 2f) / 13f
+  private const val SIZE = 64
+  private const val PAD = 5f
 
-  private fun paint(): Paint {
+  private fun fillPaint(colorHex: String): Paint {
     return Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = 0xFFFFFFFF.toInt()
+      color = AndroidColor.parseColor(colorHex)
       style = Paint.Style.FILL
     }
   }
 
-  private fun tx(x: Float): Float {
-    return SIZE / 2f + x * SCALE
+  private fun strokePaint(): Paint {
+    return Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = 0x66101018
+      style = Paint.Style.STROKE
+      strokeWidth = 1.5f
+      strokeJoin = Paint.Join.ROUND
+    }
   }
 
-  private fun ty(y: Float): Float {
-    return SIZE / 2f + y * SCALE
+  // ---------- tar1090 aircraft silhouettes (path + viewBox x,y,w,h) ----------
+
+  private class Vb(val x: Float, val y: Float, val w: Float, val h: Float)
+
+  private val GROUND_BODY =
+    "M1.77,0a3.32,3.32,0,0,0-.63.07L1,.11.86.16h0L.7.23.59.3l0,0L.49.38l0,.06a.15.15,0,0,0,0,0h0v0h0V.9l0,0,0,0h0l0,.07V4c0,.13.06.16.1.23v.3H.09c0,1.32,0,3.38,0,4.8l0,.44C.07,9.82,0,9.88,0,10v2.82c0,.09-.05.14.07.18v1.9a50.76,50.76,0,0,0,5.78,0V13.06C6,13,6,12.93,6,12.84V10c0-.15-.05-.2-.11-.22V9.37c0-1.41,0-3.51,0-4.8H5.55v-.3c0-.08.11-.1.09-.23v-3L5.6,1h0l0,0,0,0V.51h0v0h0a.15.15,0,0,0,0,0,.16.16,0,0,0,0-.06L5.41.32l0,0L5.26.23,5.12.17h0L5,.11l-.16,0A3.45,3.45,0,0,0,4,0H1.77Z"
+
+  private val SHAPES: Map<String, Pair<String, Vb>> = mapOf(
+    "cessna" to ("M16.36 20.96l2.57.27s.44.05.4.54l-.02.63s-.03.47-.45.54l-2.31.34-.44-.74-.22 1.63-.25-1.62-.38.73-2.35-.35s-.44-.1-.43-.6l-.02-.6s0-.5.48-.5l2.5-.27-.56-5.4-3.64-.1-5.83-1.02h-.45v-2.06s-.07-.37.46-.34l5.8-.17 3.55.12s-.1-2.52.52-2.82l-1.68-.04s-.1-.06 0-.14l1.94-.03s.35-1.18.7 0l1.91.04s.11.05 0 .14l-1.7.02s.62-.09.56 2.82l3.54-.1 5.81.17s.51-.04.48.35l-.01 2.06h-.47l-5.8 1-3.67.11z" to Vb(0f, -1f, 32f, 31f)),
+    "jet_swept" to ("M9.44,23c-.1.6-.35.6-.44.6s-.34,0-.44-.6l-3,.67V22.6A.54.54,0,0,1,6,22.05l2.38-1.12L8,19.33H6.69l0-.2a8.23,8.23,0,0,1-.14-3.85l.06-.18H7.73V13.19h-2L.26,14.29v-.93c0-.28.07-.46.22-.53l7.25-3.6V3.85A4.47,4.47,0,0,1,8.83.49L9,.34l.17.15a4.47,4.47,0,0,1,1.1,3.36V9.23l7.25,3.6c.14.07.22.25.22.53v.93l-5.51-1.1h-2V15.1h1.17l.06.18a8.24,8.24,0,0,1-.15,3.84l0,.2H10l-.36,1.6,2.43,1.14a.52.52,0,0,1,.35.53v1.08Z" to Vb(-1f, -1f, 20f, 26f)),
+    "airliner" to ("M16 1c-.17 0-.67.58-.9 1.03-.6 1.21-.6 1.15-.65 5.2-.04 2.97-.08 3.77-.18 3.9-.15.17-1.82 1.1-1.98 1.1-.08 0-.1-.25-.05-.83.03-.5.01-.92-.05-1.08-.1-.25-.13-.26-.71-.26-.82 0-.86.07-.78 1.5.03.6.08 1.17.11 1.25.05.12-.02.2-.25.33l-8 4.2c-.2.2-.18.1-.19 1.29 3.9-1.2 3.71-1.21 3.93-1.21.06 0 .1 0 .13.14.08.3.28.3.28-.04 0-.25.03-.27 1.16-.6.65-.2 1.22-.35 1.28-.35.05 0 .12.04.15.17.07.3.27.27.27-.08 0-.25.01-.27.7-.47.68-.1.98-.09 1.47-.1.18 0 .22 0 .26.18.06.34.22.35.27-.01.04-.2.1-.17 1.06-.14l1.07.02.05 4.2c.05 3.84.07 4.28.26 5.09.11.49.2.99.2 1.11 0 .19-.31.43-1.93 1.5l-1.93 1.26v1.02l4.13-.95.63 1.54c.05.07.12.09.19.09s.14-.02.19-.09l.63-1.54 4.13.95V29.3l-1.93-1.27c-1.62-1.06-1.93-1.3-1.93-1.49 0-.12.09-.62.2-1.11.19-.81.2-1.25.26-5.09l.05-4.2 1.07-.02c.96-.03 1.02-.05 1.06.14.05.36.21.35.27 0 .04-.17.08-.16.26-.16.49 0 .8-.02 1.48.1.68.2.69.21.69.46 0 .35.2.38.27.08.03-.13.1-.17.15-.17.06 0 .63.15 1.28.34 1.13.34 1.16.36 1.16.61 0 .35.2.34.28.04.03-.13.07-.14.13-.14.22 0 .03 0 3.93 1.2-.01-1.18.02-1.07-.19-1.27l-8-4.21c-.23-.12-.3-.21-.25-.33.03-.08.08-.65.11-1.25.08-1.43.04-1.5-.78-1.5-.58 0-.61.01-.71.26-.06.16-.08.58-.05 1.08.04.58.03.83-.05.83-.16 0-1.83-.93-1.98-1.1-.1-.13-.14-.93-.18-3.9-.05-4.05-.05-3.99-.65-5.2C16.67 1.58 16.17 1 16 1z" to Vb(-1f, -2f, 34f, 34f)),
+    "heavy_2e" to ("m 31.414,2.728 c -0.314,0.712 -1.296,2.377 -1.534,6.133 l -0.086,13.379 c 0.006,0.400 -0.380,0.888 -0.945,1.252 l -2.631,1.729 c 0.157,-0.904 0.237,-3.403 -0.162,-3.850 l -2.686,0.006 c -0.336,1.065 -0.358,2.518 -0.109,4.088 h 0.434 L 24.057,26.689 8.611,36.852 7.418,38.432 7.381,39.027 8.875,38.166 l 8.295,-2.771 0.072,0.730 0.156,-0.004 0.150,-0.859 3.799,-1.234 0.074,0.727 0.119,0.004 0.117,-0.832 2.182,-0.730 h 1.670 l 0.061,0.822 h 0.176 l 0.062,-0.822 4.018,-0.002 v 13.602 c 0.051,1.559 0.465,3.272 0.826,4.963 l -6.836,5.426 c -0.097,0.802 -0.003,1.372 0.049,1.885 l 7.734,-2.795 0.477,1.973 h 0.232 l 0.477,-1.973 7.736,2.795 c 0.052,-0.513 0.146,-1.083 0.049,-1.885 l -6.836,-5.426 c 0.361,-1.691 0.775,-3.404 0.826,-4.963 V 33.193 l 4.016,0.002 0.062,0.822 h 0.178 L 38.875,33.195 h 1.672 l 2.182,0.730 0.117,0.832 0.119,-0.004 0.072,-0.727 3.799,1.234 0.152,0.859 0.154,0.004 0.072,-0.730 8.297,2.771 1.492,0.861 -0.037,-0.596 -1.191,-1.580 -15.447,-10.162 0.363,-1.225 H 41.125 c 0.248,-1.569 0.225,-3.023 -0.111,-4.088 l -2.686,-0.006 c -0.399,0.447 -0.317,2.945 -0.160,3.850 L 35.535,23.492 C 34.970,23.128 34.584,22.640 34.590,22.240 L 34.504,8.910 C 34.193,4.926 33.369,3.602 32.934,2.722 32.442,1.732 31.894,1.828 31.414,2.728 Z" to Vb(0f, -3.2f, 64.2f, 64.2f)),
+    "hi_perf" to ("M 30.82,61.32 29.19,54.84 29.06,60.19 27.70,60.70 22.27,60.63 21.68,59.60 l -0.01,-2.71 6.26,-5.52 -0.03,-3.99 -13.35,-0.01 -3e-6,1.15 -1.94,0.00 -0.01,-1.31 0.68,-0.65 L 13.30,37.20 c -0.01,-0.71 0.57,-0.77 0.60,0 l 0.05,1.57 0.28,0.23 0.26,4.09 L 19.90,38.48 c 0,0 -0.04,-1.26 0.20,-1.28 0.16,-0.02 0.20,0.98 0.20,0.98 l 4.40,-3.70 c 0,0 0.02,-1.28 0.20,-1.28 0.14,-0.00 0.20,0.98 0.20,0.98 l 1.80,-1.54 C 27.02,28.77 28.82,25.58 29,21.20 c 0.06,-1.41 0.23,-3.34 0.86,-3.85 0.21,-4.40 1.32,-11.03 2.39,-11.03 1.07,0 2.17,6.64 2.39,11.03 0.63,0.51 0.80,2.45 0.86,3.85 0.18,4.38 1.98,7.57 2.10,11.44 l 1.80,1.54 c 0,0 0.06,-0.99 0.20,-0.98 0.18,0.01 0.20,1.28 0.20,1.28 l 4.40,3.70 c 0,0 0.04,-1.00 0.20,-0.98 0.24,0.03 0.20,1.28 0.20,1.28 l 5.41,4.60 0.26,-4.09 0.28,-0.23 L 50.59,37.20 c 0.03,-0.77 0.61,-0.71 0.60,0 l 0.02,9.37 0.68,0.65 -0.01,1.31 -1.94,-0.00 -3e-6,-1.15 -13.35,0.01 -0.03,3.99 6.26,5.52 L 42.81,59.60 42.22,60.63 36.79,60.70 35.43,60.19 35.30,54.84 33.67,61.32 Z" to Vb(-7.8f, 0f, 80f, 80f)),
+    "helicopter" to ("m 24.698,60.712 c 0,0 -0.450,2.134 -0.861,2.142 -0.561,0.011 -0.480,-3.836 -0.593,-5.761 -0.064,-1.098 1.381,-1.192 1.481,-0.042 l 5.464,0.007 -0.068,-9.482 -0.104,-1.108 c -2.410,-2.131 -3.028,-3.449 -3.152,-7.083 l -12.460,13.179 c -0.773,0.813 -2.977,0.599 -3.483,-0.428 L 26.920,35.416 26.866,29.159 11.471,14.513 c -0.813,-0.773 -0.599,-2.977 0.428,-3.483 l 14.971,14.428 0.150,-5.614 c -0.042,-1.324 1.075,-4.784 3.391,-5.633 0.686,-0.251 2.131,-0.293 3.033,0.008 2.349,0.783 3.433,4.309 3.391,5.633 l 0.073,4.400 12.573,-12.763 c 0.779,-0.807 2.977,-0.599 3.483,0.428 L 37.054,28.325 37.027,35.027 52.411,49.365 c 0.813,0.773 0.599,2.977 -0.428,3.483 L 36.992,38.359 c -0.124,3.634 -0.742,5.987 -3.152,8.118 l -0.104,1.108 -0.068,9.482 5.321,-0.068 c 0.101,-1.150 1.546,-1.057 1.481,0.042 -0.113,1.925 -0.032,5.772 -0.593,5.761 -0.412,-0.008 -0.861,-2.142 -0.861,-2.142 l -5.387,-0.011 0.085,9.377 -1.094,2.059 -1.386,-0.018 -1.093,-2.049 0.085,-9.377 z" to Vb(-13f, -13f, 90f, 90f)),
+    "glider" to ("m 32.000,45.932 -0.215,0.314 c -0.118,0.173 -0.196,0.239 -0.378,0.401 -0.226,0.145 -0.850,-0.045 -1.196,-0.137 -0.658,-0.204 -1.909,-0.478 -2.984,-0.718 -0.065,-0.021 -0.186,-0.136 -0.406,-0.344 -0.342,-0.323 -0.409,-0.463 -0.459,-0.961 -0.074,-0.730 0.183,-1.127 0.795,-1.228 0.218,-0.036 0.732,-0.130 1.143,-0.210 0.411,-0.080 1.132,-0.201 1.602,-0.271 1.252,-0.185 1.635,-0.299 1.701,-0.507 0.059,-0.186 -0.006,-2.549 -0.101,-3.654 -0.110,-2.092 -0.181,-3.601 -0.281,-5.738 0.039,-0.214 -0.274,-0.732 -0.553,-0.915 l -5.180,-0.560 c -0.611,-0.069 -3.989,-0.350 -5.732,-0.476 -1.476,-0.108 -2.940,-0.246 -4.432,-0.362 l -3.097,-0.439 C 7.935,29.593 4.497,29.014 2.499e-5,28.410 l 0.019,-2.401 5.562,-0.286 c 2.699,-0.023 6.207,-0.092 9.264,-0.183 0.646,-0.019 4.548,-0.040 8.671,-0.047 l 7.496,-0.012 -0.017,-2.376 c -0.007,-1.423 -0.104,-3.049 0.253,-4.827 0.028,-0.088 0.121,-0.396 0.344,-0.722 0.071,-0.090 0.213,-0.175 0.408,-0.255 0.195,0.080 0.337,0.165 0.408,0.255 0.223,0.325 0.316,0.633 0.343,0.722 0.357,1.778 0.261,3.405 0.253,4.827 l -0.016,2.376 7.496,0.012 c 4.123,0.007 8.025,0.028 8.671,0.047 3.057,0.091 6.564,0.160 9.264,0.183 l 5.562,0.286 0.019,2.401 c -4.497,0.605 -7.935,1.183 -12.228,1.717 l -3.097,0.439 c -1.492,0.116 -2.956,0.254 -4.432,0.362 -1.743,0.127 -5.121,0.408 -5.732,0.476 l -5.180,0.560 c -0.278,0.182 -0.592,0.701 -0.553,0.915 -0.100,2.136 -0.171,3.646 -0.281,5.738 -0.095,1.105 -0.160,3.468 -0.101,3.654 0.066,0.208 0.449,0.322 1.701,0.507 0.470,0.069 1.191,0.191 1.602,0.271 0.411,0.080 0.926,0.174 1.143,0.210 0.612,0.101 0.870,0.498 0.795,1.228 -0.051,0.499 -0.118,0.638 -0.460,0.961 -0.220,0.208 -0.341,0.323 -0.406,0.344 -1.075,0.240 -2.326,0.513 -2.984,0.718 -0.346,0.091 -0.970,0.282 -1.196,0.137 -0.182,-0.162 -0.260,-0.228 -0.378,-0.401 z" to Vb(-5.8f, -10f, 76f, 76f)),
+    "balloon" to ("M3.56,12.75a.49.49,0,0,1-.46-.34L2.63,11a.51.51,0,0,1,.07-.44l.1-.1-2-3.68a.48.48,0,0,1-.05-.17,4.39,4.39,0,0,1-.48-2A4.29,4.29,0,0,1,4.5.25,4.29,4.29,0,0,1,8.75,4.58a4.39,4.39,0,0,1-.48,2,.45.45,0,0,1-.05.17l-2,3.68a.44.44,0,0,1,.1.1.51.51,0,0,1,.07.45L5.9,12.41a.49.49,0,0,1-.46.34Zm1.6-2.43L6.1,8.59A4.22,4.22,0,0,1,5,8.88v1.44ZM4,10.32V8.88A4.22,4.22,0,0,1,2.9,8.59l.94,1.73Z" to Vb(-2f, -2f, 13f, 17f)),
+    "uav" to ("M16.8 15.57v-1.08s1.8-5.07-.74-5.58c-2.44.59-.67 5.58-.67 5.58h0v1.08l-2.6.15-10.23.54v1.08l10.26.46 2.55.07v3.86h-3.05v1.38h3.25v.34l-1.81.25v.14h1.98c.15.49.35.47.35.47s.2.02.35-.47h1.99v-.14l-1.81-.25v-.34h3.24v-1.38h-3.05v-3.86l2.55-.07 10.26-.46v-1.08l-10.22-.54z" to Vb(0f, 1f, 32f, 32f)),
+    "ground_unknown" to (GROUND_BODY to Vb(-0.6f, -1.5f, 7.2f, 18f)),
+    "ground_emergency" to (GROUND_BODY to Vb(-0.6f, -1.5f, 7.2f, 18f)),
+    "ground_service" to (GROUND_BODY to Vb(-0.6f, -1.5f, 7.2f, 18f)),
+    "obstacle_point" to ("M12 2L3 20H21Z" to Vb(0f, 0f, 24f, 24f)),
+    "obstacle_cluster" to ("M7 7A3 3 0 1 0 7 6.99Z M17 7A3 3 0 1 0 17 6.99Z M12 14A3 3 0 1 0 12 13.99Z M8 17H16V20H8Z" to Vb(0f, 0f, 24f, 24f)),
+    "obstacle_line" to ("M2 6H22V8H2Z M2 11H22V13H2Z M2 16H22V18H2Z" to Vb(0f, 0f, 24f, 24f)),
+    "unknown" to ("M 4.256,15.496 C 3.979,14.340 7.280,13.606 7.280,13.606 V 8.650 l -6,2 c -0.680,0 -1,-0.350 -1,-0.660 C 0.242,9.595 0.496,9.231 0.880,9.130 1.140,9 4.800,7 7.280,5.630 V 3 C 7.280,1.890 7.720,0.290 8.510,0.290 9.300,0.290 9.770,1.840 9.770,3 v 2.630 c 2.450,1.370 6.100,3.370 6.370,3.500 0.390,0.093 0.651,0.461 0.610,0.860 -0.050,0.310 -0.360,0.670 -1.050,0.670 l -5.930,-2 v 4.946 c 0,0 3.300,0.734 3.024,1.890 -0.331,1.384 -2.830,0.378 -4.254,0.378 -1.434,4.520e-4 -3.950,1.016 -4.284,-0.378 z" to Vb(-2.5f, -2.5f, 22f, 22f)),
+  )
+
+  private fun shapeBitmap(name: String, colorHex: String): Bitmap {
+    val (pathData, vb) = SHAPES[name] ?: SHAPES.getValue("unknown")
+    val bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bmp)
+    // PathParser throws on malformed path data; never let that crash style load.
+    val path = runCatching { PathParser.createPathFromPathData(pathData) }.getOrNull()
+    if (path == null) {
+      canvas.drawCircle(SIZE / 2f, SIZE / 2f, SIZE / 2f - PAD, fillPaint(colorHex))
+      return bmp
+    }
+    val inner = SIZE - 2f * PAD
+    val scale = inner / max(vb.w, vb.h)
+    val tx = PAD + (inner - vb.w * scale) / 2f - vb.x * scale
+    val ty = PAD + (inner - vb.h * scale) / 2f - vb.y * scale
+    path.transform(Matrix().apply { setScale(scale, scale); postTranslate(tx, ty) })
+    canvas.drawPath(path, fillPaint(colorHex))
+    canvas.drawPath(path, strokePaint())
+    return bmp
   }
 
-  private fun polygonBitmap(points: List<Pair<Float, Float>>): Bitmap {
+  // ---------- Vessel silhouettes (bow up, design space [-13, 13]) ----------
+
+  private val vesselScale = (SIZE / 2f - 2f) / 13f
+
+  private fun vx(x: Float): Float = SIZE / 2f + x * vesselScale
+  private fun vy(y: Float): Float = SIZE / 2f + y * vesselScale
+
+  private fun polygonBitmap(points: List<Pair<Float, Float>>, colorHex: String): Bitmap {
     val bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bmp)
     val path = Path()
     points.forEachIndexed { i, (x, y) ->
-      if (i == 0) path.moveTo(tx(x), ty(y)) else path.lineTo(tx(x), ty(y))
+      if (i == 0) path.moveTo(vx(x), vy(y)) else path.lineTo(vx(x), vy(y))
     }
     path.close()
-    canvas.drawPath(path, paint())
+    canvas.drawPath(path, fillPaint(colorHex))
+    canvas.drawPath(path, strokePaint())
     return bmp
   }
-
-  private fun helicopterBitmap(): Bitmap {
-    val bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bmp)
-    val p = paint()
-    // Cabin (rounded teardrop approximated by an oval).
-    canvas.drawOval(tx(-3.5f), ty(-6f), tx(3.5f), ty(4f), p)
-    // Tail boom + fin.
-    canvas.drawRect(tx(-1f), ty(3f), tx(1f), ty(10f), p)
-    canvas.drawRect(tx(-3f), ty(9f), tx(3f), ty(11f), p)
-    // Main rotor: two thin crossed bars.
-    canvas.drawRect(tx(-12f), ty(-2.6f), tx(12f), ty(-1.4f), p)
-    canvas.drawRect(tx(-0.6f), ty(-11f), tx(0.6f), ty(7f), p)
-    return bmp
-  }
-
-  private fun droneBitmap(): Bitmap {
-    val bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bmp)
-    val p = paint()
-    val stroke = paint().apply {
-      style = Paint.Style.STROKE
-      strokeWidth = 1.4f * SCALE
-    }
-    // Diagonal arms.
-    canvas.drawLine(tx(-8f), ty(-8f), tx(8f), ty(8f), stroke)
-    canvas.drawLine(tx(-8f), ty(8f), tx(8f), ty(-8f), stroke)
-    // Central body.
-    canvas.drawRect(tx(-2.5f), ty(-2.5f), tx(2.5f), ty(2.5f), p)
-    // Rotor rings at arm ends.
-    val ringR = 3f * SCALE
-    listOf(-8f to -8f, 8f to -8f, -8f to 8f, 8f to 8f).forEach { (x, y) ->
-      canvas.drawCircle(tx(x), ty(y), ringR, stroke)
-    }
-    return bmp
-  }
-
-  // ---------- Aircraft silhouettes (nose up) ----------
-
-  private val genericPlane = listOf(
-    0f to -10f, 2f to -3f, 10f to 0f, 10f to 2f, 2f to 1f, 1f to 8f, 4f to 10f,
-    4f to 11f, 0f to 9.5f, -4f to 11f, -4f to 10f, -1f to 8f, -2f to 1f,
-    -10f to 2f, -10f to 0f, -2f to -3f,
-  )
-
-  private val jet = listOf(
-    0f to -11f, 1.5f to -4f, 11f to 3f, 11f to 5f, 1.5f to 1.5f, 1f to 8f,
-    3.5f to 10.5f, 3.5f to 11.5f, 0f to 10f, -3.5f to 11.5f, -3.5f to 10.5f,
-    -1f to 8f, -1.5f to 1.5f, -11f to 5f, -11f to 3f, -1.5f to -4f,
-  )
-
-  private val turboprop = listOf(
-    0f to -9f, 2f to -4f, 11f to -1f, 11f to 1f, 2f to 0f, 1.5f to 7f, 4f to 9f,
-    4f to 10f, 0f to 8.5f, -4f to 10f, -4f to 9f, -1.5f to 7f, -2f to 0f,
-    -11f to 1f, -11f to -1f, -2f to -4f,
-  )
-
-  private val piston = listOf(
-    0f to -8f, 1.5f to -3f, 9f to 0f, 9f to 1.5f, 1.5f to 0.5f, 1f to 6f,
-    3f to 8f, 3f to 9f, 0f to 7.5f, -3f to 9f, -3f to 8f, -1f to 6f,
-    -1.5f to 0.5f, -9f to 1.5f, -9f to 0f, -1.5f to -3f,
-  )
-
-  private val military = listOf(
-    0f to -11f, 2f to 2f, 9f to 7f, 9f to 8.5f, 0f to 5f, -9f to 8.5f, -9f to 7f, -2f to 2f,
-  )
-
-  private val glider = listOf(
-    0f to -10f, 1f to -2f, 13f to -0.3f, 13f to 0.7f, 1f to 1f, 0.8f to 8f,
-    2.5f to 10f, 2.5f to 10.8f, 0f to 9.5f, -2.5f to 10.8f, -2.5f to 10f,
-    -0.8f to 8f, -1f to 1f, -13f to 0.7f, -13f to -0.3f, -1f to -2f,
-  )
-
-  // ---------- Vessel silhouettes (bow up) ----------
 
   private val genericShip = listOf(0f to -9f, 5f to -2f, 5f to 8f, -5f to 8f, -5f to -2f)
   private val cargo = listOf(0f to -11f, 3.5f to -5f, 3.5f to 10f, -3.5f to 10f, -3.5f to -5f)
@@ -129,37 +112,33 @@ object MapIcons {
   private val fishing = listOf(0f to -7f, 3f to -1f, 3f to 6f, -3f to 6f, -3f to -1f)
   private val pleasure = listOf(0f to -10f, 3f to 7f, -3f to 7f)
   private val tug = listOf(0f to -6f, 4f to -1f, 4f to 5f, -4f to 5f, -4f to -1f)
-
-  // Stepped outline: narrow tall bow rising to a broad deck → reads as a large
-  // passenger/cruise ship. One polygon so it works as an SDF (alpha-only) image.
   private val passenger = listOf(
     0f to -10f, 2.2f to -4f, 2.2f to -1f, 4.5f to -1f, 4.5f to 8f,
     -4.5f to 8f, -4.5f to -1f, -2.2f to -1f, -2.2f to -4f,
   )
 
-  /** All category images keyed by the [AircraftIconCategory.image] / [VesselIconCategory.image] name. */
-  fun all(): Map<String, Bitmap> {
-    return mapOf(
-      AircraftIconCategory.DEFAULT.image to polygonBitmap(genericPlane),
-      AircraftIconCategory.JET.image to polygonBitmap(jet),
-      AircraftIconCategory.TURBOPROP.image to polygonBitmap(turboprop),
-      AircraftIconCategory.PISTON.image to polygonBitmap(piston),
-      AircraftIconCategory.MILITARY.image to polygonBitmap(military),
-      AircraftIconCategory.GLIDER.image to polygonBitmap(glider),
-      AircraftIconCategory.HELICOPTER.image to helicopterBitmap(),
-      AircraftIconCategory.DRONE.image to droneBitmap(),
-      VesselIconCategory.DEFAULT.image to polygonBitmap(genericShip),
-      VesselIconCategory.CARGO.image to polygonBitmap(cargo),
-      VesselIconCategory.TANKER.image to polygonBitmap(tanker),
-      VesselIconCategory.FISHING.image to polygonBitmap(fishing),
-      VesselIconCategory.PLEASURE.image to polygonBitmap(pleasure),
-      VesselIconCategory.TUG.image to polygonBitmap(tug),
-      VesselIconCategory.PASSENGER.image to polygonBitmap(passenger),
-    )
-  }
+  private val vesselShapes: Map<VesselIconCategory, Pair<List<Pair<Float, Float>>, String>> = mapOf(
+    VesselIconCategory.PASSENGER to (passenger to "#26a69a"),
+    VesselIconCategory.CARGO to (cargo to "#fbc02d"),
+    VesselIconCategory.TANKER to (tanker to "#ef5350"),
+    VesselIconCategory.FISHING to (fishing to "#ab47bc"),
+    VesselIconCategory.PLEASURE to (pleasure to "#ab47bc"),
+    VesselIconCategory.TUG to (tug to "#80cbc4"),
+    VesselIconCategory.DEFAULT to (genericShip to "#80cbc4"),
+  )
 
-  /** Registers every category image with [style] as an SDF image (tintable). */
+  /**
+   * Registers one colored image per ADS-B category (keyed by [AdsbCategory.code])
+   * and per vessel category (keyed by [VesselIconCategory.image]). Non-SDF — the
+   * category color is baked in, so the SymbolLayer needs no `icon-color`.
+   */
   fun register(style: Style) {
-    all().forEach { (name, bitmap) -> style.addImage(name, bitmap, true) }
+    ADSB_CATEGORIES.forEach { category ->
+      style.addImage(category.code, shapeBitmap(category.iconName, category.color), false)
+    }
+    vesselShapes.forEach { (category, shape) ->
+      val (points, colorHex) = shape
+      style.addImage(category.image, polygonBitmap(points, colorHex), false)
+    }
   }
 }

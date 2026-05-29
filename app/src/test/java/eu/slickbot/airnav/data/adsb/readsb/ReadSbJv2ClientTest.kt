@@ -35,7 +35,8 @@ class ReadSbJv2ClientTest {
   fun `fetch decodes a happy adsb fi payload`() {
     server.enqueue(
       MockResponse().setResponseCode(200).setBody(
-        """{"aircraft":[{"hex":"4b1814","lat":1.0,"lon":2.0}],"now":1000.0,"total":1}"""
+        // ptime/ctime are fractional on the wire — must decode as Double, not Long.
+        """{"aircraft":[{"hex":"4b1814","lat":1.0,"lon":2.0}],"now":1000.0,"total":1,"ptime":0.054,"ctime":1.5}"""
       )
     )
 
@@ -47,7 +48,7 @@ class ReadSbJv2ClientTest {
 
     assertEquals(1, response.aircraft.size)
     assertEquals("4b1814", response.aircraft.single().icaoHex)
-    assertEquals(1000.0, response.timestampMs!!, 0.0)
+    assertEquals(1000.0, response.timestampSeconds!!, 0.0)
   }
 
   @Test

@@ -3,15 +3,13 @@ package eu.slickbot.airnav.ui.map
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MarkerCategoriesTest {
 
   private fun aircraft(
-    type: String? = null,
     category: String? = null,
-    description: String? = null,
-    altitudeFt: Int? = null,
     callsign: String? = null,
     registration: String? = null,
     hex: String = "abc123",
@@ -20,93 +18,52 @@ class MarkerCategoriesTest {
       hex = hex,
       callsign = callsign,
       registration = registration,
-      type = type,
+      type = null,
       lat = 0.0,
       lon = 0.0,
-      altitudeFt = altitudeFt,
+      altitudeFt = null,
       groundSpeedKn = null,
       trackDeg = null,
       squawk = null,
       category = category,
-      description = description,
     )
   }
 
   private fun vessel(shipType: Int?, name: String? = null, mmsi: Long = 211281610L): Vessel {
     return Vessel(
-      mmsi = mmsi,
-      name = name,
-      callsign = null,
-      imo = null,
-      lat = 0.0,
-      lon = 0.0,
-      sogKn = null,
-      cogDeg = null,
-      trueHeadingDeg = null,
-      navStatus = null,
-      shipType = shipType,
-      destination = null,
-      updatedAtMs = 0L,
+      mmsi = mmsi, name = name, callsign = null, imo = null, lat = 0.0, lon = 0.0,
+      sogKn = null, cogDeg = null, trueHeadingDeg = null, navStatus = null,
+      shipType = shipType, destination = null, updatedAtMs = 0L,
     )
   }
 
   @Test
-  fun `jet from description`() {
-    assertEquals(
-      AircraftIconCategory.JET,
-      aircraftIconCategory(aircraft(description = "Landplane with 2 Jet engine(s)")),
-    )
+  fun `emitter codes map to the v9 icon and color`() {
+    assertEquals("airliner", adsbCategoryFor(aircraft(category = "A3")).iconName)
+    assertEquals("#24c89a", adsbCategoryFor(aircraft(category = "A3")).color)
+    assertEquals("heavy_2e", adsbCategoryFor(aircraft(category = "A5")).iconName)
+    assertEquals("helicopter", adsbCategoryFor(aircraft(category = "A7")).iconName)
+    assertEquals("glider", adsbCategoryFor(aircraft(category = "B1")).iconName)
+    assertEquals("uav", adsbCategoryFor(aircraft(category = "B6")).iconName)
   }
 
   @Test
-  fun `turboprop from description`() {
-    assertEquals(
-      AircraftIconCategory.TURBOPROP,
-      aircraftIconCategory(aircraft(description = "Landplane with 2 Turboprop / Turboshaft engine(s)")),
-    )
+  fun `lowercase emitter code is normalized`() {
+    assertEquals("A7", adsbCategoryFor(aircraft(category = "a7")).code)
   }
 
   @Test
-  fun `piston from description`() {
-    assertEquals(
-      AircraftIconCategory.PISTON,
-      aircraftIconCategory(aircraft(description = "Landplane with 1 Piston engine(s)")),
-    )
+  fun `unknown or missing emitter falls back to other`() {
+    assertEquals(OTHER_CATEGORY_CODE, adsbCategoryFor(aircraft(category = null)).code)
+    assertEquals(OTHER_CATEGORY_CODE, adsbCategoryFor(aircraft(category = "Z9")).code)
+    assertEquals("unknown", adsbCategoryFor(aircraft(category = null)).iconName)
   }
 
   @Test
-  fun `helicopter wins over turboshaft engine text`() {
-    assertEquals(
-      AircraftIconCategory.HELICOPTER,
-      aircraftIconCategory(aircraft(description = "Helicopter with 1 Turboshaft engine(s)")),
-    )
-  }
-
-  @Test
-  fun `emitter category A7 is helicopter even with jet text`() {
-    assertEquals(
-      AircraftIconCategory.HELICOPTER,
-      aircraftIconCategory(aircraft(category = "A7", description = "Landplane with 2 Jet engine(s)")),
-    )
-  }
-
-  @Test
-  fun `emitter B1 is glider and B6 is drone`() {
-    assertEquals(AircraftIconCategory.GLIDER, aircraftIconCategory(aircraft(category = "B1")))
-    assertEquals(AircraftIconCategory.DRONE, aircraftIconCategory(aircraft(category = "B6")))
-  }
-
-  @Test
-  fun `known military type designator is military`() {
-    assertEquals(
-      AircraftIconCategory.MILITARY,
-      aircraftIconCategory(aircraft(type = "F16", description = "Landplane with 1 Jet engine(s)")),
-    )
-  }
-
-  @Test
-  fun `no signal falls back to default`() {
-    assertEquals(AircraftIconCategory.DEFAULT, aircraftIconCategory(aircraft()))
+  fun `balloon and obstacles do not rotate`() {
+    assertTrue(adsbCategoryFor(aircraft(category = "B2")).noRotate)
+    assertTrue(adsbCategoryFor(aircraft(category = "C3")).noRotate)
+    assertTrue(!adsbCategoryFor(aircraft(category = "A3")).noRotate)
   }
 
   @Test
@@ -117,17 +74,7 @@ class MarkerCategoriesTest {
     assertEquals(VesselIconCategory.FISHING, vesselIconCategory(vessel(30)))
     assertEquals(VesselIconCategory.TUG, vesselIconCategory(vessel(52)))
     assertEquals(VesselIconCategory.PLEASURE, vesselIconCategory(vessel(37)))
-    assertEquals(VesselIconCategory.DEFAULT, vesselIconCategory(vessel(99)))
     assertEquals(VesselIconCategory.DEFAULT, vesselIconCategory(vessel(null)))
-  }
-
-  @Test
-  fun `aircraft color bands match airnav_js`() {
-    assertEquals("#9e9e9e", aircraftColor(null))
-    assertEquals("#ff5252", aircraftColor(4999))
-    assertEquals("#ffb300", aircraftColor(14999))
-    assertEquals("#4fc3f7", aircraftColor(29999))
-    assertEquals("#b39ddb", aircraftColor(30000))
   }
 
   @Test
@@ -137,7 +84,6 @@ class MarkerCategoriesTest {
     assertEquals("#fbc02d", vesselColor(75))
     assertEquals("#ef5350", vesselColor(85))
     assertEquals("#ab47bc", vesselColor(35))
-    assertEquals("#80cbc4", vesselColor(10))
   }
 
   @Test

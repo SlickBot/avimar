@@ -45,101 +45,101 @@ import eu.slickbot.airnav.ui.theme.AccentTeal
 
 @Composable
 fun SearchOverlay(
-    visible: Boolean,
-    query: String,
-    onQueryChange: (String) -> Unit,
-    hits: List<SearchHit>,
-    onHitTap: (SearchHit) -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
+  visible: Boolean,
+  query: String,
+  onQueryChange: (String) -> Unit,
+  hits: List<SearchHit>,
+  onHitTap: (SearchHit) -> Unit,
+  onDismiss: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 4 }),
-        exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 4 }),
-        modifier = modifier,
-    ) {
-        val focusRequester = remember { FocusRequester() }
-        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+  AnimatedVisibility(
+    visible = visible,
+    enter = fadeIn() + slideInVertically(initialOffsetY = { -it / 4 }),
+    exit = fadeOut() + slideOutVertically(targetOffsetY = { -it / 4 }),
+    modifier = modifier,
+  ) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-        OverlayCard(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(10.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.Search,
-                        contentDescription = null,
-                        modifier = Modifier.padding(start = 8.dp, end = 4.dp),
-                    )
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = onQueryChange,
-                        placeholder = { Text("Callsign, registration, name, MMSI") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            capitalization = KeyboardCapitalization.Characters,
-                            imeAction = ImeAction.Search,
-                        ),
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester),
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Filled.Close, contentDescription = "Close search")
-                    }
-                }
-                if (hits.isNotEmpty()) {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 320.dp)
-                            .padding(top = 6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(hits, key = ::hitKey) { hit -> HitRow(hit, onHitTap) }
-                    }
-                } else if (query.isNotBlank()) {
-                    Text(
-                        text = "No matches",
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+    OverlayCard(modifier = Modifier.fillMaxWidth()) {
+      Column(modifier = Modifier.padding(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(
+            Icons.Filled.Search,
+            contentDescription = null,
+            modifier = Modifier.padding(start = 8.dp, end = 4.dp),
+          )
+          OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = { Text("Callsign, registration, name, MMSI") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(
+              capitalization = KeyboardCapitalization.Characters,
+              imeAction = ImeAction.Search,
+            ),
+            modifier = Modifier
+              .weight(1f)
+              .focusRequester(focusRequester),
+          )
+          IconButton(onClick = onDismiss) {
+            Icon(Icons.Filled.Close, contentDescription = "Close search")
+          }
         }
+        if (hits.isNotEmpty()) {
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxWidth()
+              .heightIn(max = 320.dp)
+              .padding(top = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            items(hits, key = ::hitKey) { hit -> HitRow(hit, onHitTap) }
+          }
+        } else if (query.isNotBlank()) {
+          Text(
+            text = "No matches",
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
     }
+  }
 }
 
 @Composable
 private fun HitRow(hit: SearchHit, onTap: (SearchHit) -> Unit) {
-    val tint = when (hit) {
-        is SearchHit.Plane -> AccentBlue
-        is SearchHit.Ship -> AccentTeal
+  val tint = when (hit) {
+    is SearchHit.Plane -> AccentBlue
+    is SearchHit.Ship -> AccentTeal
+  }
+  val icon = when (hit) {
+    is SearchHit.Plane -> Icons.Filled.Flight
+    is SearchHit.Ship -> Icons.Filled.DirectionsBoat
+  }
+  Row(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clip(RoundedCornerShape(12.dp))
+      .clickable { onTap(hit) }
+      .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+      .padding(horizontal = 12.dp, vertical = 10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
+  ) {
+    Icon(icon, contentDescription = null, tint = tint)
+    Column(modifier = Modifier.weight(1f)) {
+      Text(hit.title, fontWeight = FontWeight.SemiBold)
+      hit.subtitle?.let {
+        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+      }
     }
-    val icon = when (hit) {
-        is SearchHit.Plane -> Icons.Filled.Flight
-        is SearchHit.Ship -> Icons.Filled.DirectionsBoat
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onTap(hit) }
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(icon, contentDescription = null, tint = tint)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(hit.title, fontWeight = FontWeight.SemiBold)
-            hit.subtitle?.let {
-                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
+  }
 }
 
 private fun hitKey(hit: SearchHit): String = when (hit) {
-    is SearchHit.Plane -> "p:${hit.aircraft.hex}"
-    is SearchHit.Ship -> "s:${hit.vessel.mmsi}"
+  is SearchHit.Plane -> "p:${hit.aircraft.hex}"
+  is SearchHit.Ship -> "s:${hit.vessel.mmsi}"
 }

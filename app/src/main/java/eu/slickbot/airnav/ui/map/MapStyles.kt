@@ -64,32 +64,32 @@ object MapStyles {
   fun styleJson(style: TileStyle): String {
     val tiles = tileUrls(style).joinToString(",") { "\"$it\"" }
     return """
-      {
-        "version": 8,
-        "glyphs": "$GLYPHS_URL",
-        "sources": {
-          "$RASTER_SOURCE_ID": {
-            "type": "raster",
-            "tiles": [$tiles],
-            "tileSize": 256,
-            "minzoom": 0,
-            "maxzoom": ${maxZoom(style)},
-            "attribution": "${attribution(style)}"
-          }
-        },
-        "layers": [
-          {
-            "id": "background",
-            "type": "background",
-            "paint": { "background-color": "$BACKGROUND_COLOR" }
-          },
-          {
-            "id": "$RASTER_LAYER_ID",
-            "type": "raster",
-            "source": "$RASTER_SOURCE_ID"
-          }
-        ]
-      }
-    """.trimIndent()
+            {
+                "version": 8,
+                "glyphs": "$GLYPHS_URL",
+                "sources": {
+                    "$RASTER_SOURCE_ID": {
+                        "type": "raster",
+                        "tiles": [$tiles],
+                        "tileSize": 256,
+                        "minzoom": 0,
+                        "maxzoom": ${maxZoom(style)},
+                        "attribution": "${attribution(style)}"
+                    }
+                },
+                "layers": [
+                    {
+                        "id": "background",
+                        "type": "background",
+                        "paint": { "background-color": "$BACKGROUND_COLOR" }
+                    },
+                    {
+                        "id": "$RASTER_LAYER_ID",
+                        "type": "raster",
+                        "source": "$RASTER_SOURCE_ID"
+                    }
+                ]
+            }
+        """.trimIndent()
   }
 }

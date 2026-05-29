@@ -6,7 +6,7 @@ package eu.slickbot.airnav.data.common
  * (network, timeout, interrupt).
  */
 class FetchException(
-    message: String,
-    val statusCode: Int? = null,
-    cause: Throwable? = null,
+  message: String,
+  val statusCode: Int? = null,
+  cause: Throwable? = null,
 ) : RuntimeException(message, cause)

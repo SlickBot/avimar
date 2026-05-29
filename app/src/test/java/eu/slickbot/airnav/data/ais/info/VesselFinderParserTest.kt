@@ -6,11 +6,11 @@ import org.junit.Test
 
 class VesselFinderParserTest {
 
-    private val parser = VesselFinderParser()
+  private val parser = VesselFinderParser()
 
-    @Test
-    fun `extracts name, MMSI, flag, type, dimensions, photo from a typical vessel page`() {
-        val html = """
+  @Test
+  fun `extracts name, MMSI, flag, type, dimensions, photo from a typical vessel page`() {
+    val html = """
             <html><head>
               <meta property="og:image" content="https://static.vesselfinder.net/ship-photo/0-247053540-abcd/1?v1" />
             </head><body>
@@ -29,26 +29,26 @@ class VesselFinderParserTest {
             </body></html>
         """.trimIndent()
 
-        val result = parser.parse(html, "https://www.vesselfinder.com/vessels/details/247053540")
+    val result = parser.parse(html, "https://www.vesselfinder.com/vessels/details/247053540")
 
-        assertEquals("KETTY", result.name)
-        assertEquals("IBQR", result.callsign)
-        assertEquals("Italy", result.flag)
-        assertEquals("General Cargo", result.shipType)
-        assertEquals(2008, result.buildYear)
-        assertEquals(4250, result.grossTonnage)
-        assertEquals(89.0, result.lengthMeters!!, 0.001)
-        assertEquals(14.0, result.beamMeters!!, 0.001)
-        assertEquals(4.8, result.draughtMeters!!, 0.001)
-        assertEquals(
-            "https://static.vesselfinder.net/ship-photo/0-247053540-abcd/1?v1",
-            result.photoUrl,
-        )
-    }
+    assertEquals("KETTY", result.name)
+    assertEquals("IBQR", result.callsign)
+    assertEquals("Italy", result.flag)
+    assertEquals("General Cargo", result.shipType)
+    assertEquals(2008, result.buildYear)
+    assertEquals(4250, result.grossTonnage)
+    assertEquals(89.0, result.lengthMeters!!, 0.001)
+    assertEquals(14.0, result.beamMeters!!, 0.001)
+    assertEquals(4.8, result.draughtMeters!!, 0.001)
+    assertEquals(
+      "https://static.vesselfinder.net/ship-photo/0-247053540-abcd/1?v1",
+      result.photoUrl,
+    )
+  }
 
-    @Test
-    fun `filters VesselFinder placeholder photo`() {
-        val html = """
+  @Test
+  fun `filters VesselFinder placeholder photo`() {
+    val html = """
             <html><head>
               <meta property="og:image" content="https://static.vesselfinder.net/images/cool-ship2@2.png" />
             </head><body>
@@ -56,14 +56,14 @@ class VesselFinderParserTest {
               <table><tr><td>MMSI</td><td>247053540</td></tr></table>
             </body></html>
         """.trimIndent()
-        val result = parser.parse(html, "https://www.vesselfinder.com/vessels/details/247053540")
-        assertNull(result.photoUrl)
-    }
+    val result = parser.parse(html, "https://www.vesselfinder.com/vessels/details/247053540")
+    assertNull(result.photoUrl)
+  }
 
-    @Test
-    fun `name strips trailing ship-type suffix after comma`() {
-        val html = """<html><body><h1>OCEAN PEARL, Tanker</h1></body></html>"""
-        val result = parser.parse(html, "")
-        assertEquals("OCEAN PEARL", result.name)
-    }
+  @Test
+  fun `name strips trailing ship-type suffix after comma`() {
+    val html = """<html><body><h1>OCEAN PEARL, Tanker</h1></body></html>"""
+    val result = parser.parse(html, "")
+    assertEquals("OCEAN PEARL", result.name)
+  }
 }

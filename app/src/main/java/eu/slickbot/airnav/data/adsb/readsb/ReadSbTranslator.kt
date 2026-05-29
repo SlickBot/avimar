@@ -57,11 +57,11 @@ class ReadSbTranslator(
   }
 
   private fun resolveCapturedAt(response: ReadSbJv2Response): Instant {
-    if (response.timestampMs != null) {
-      return Instant.ofEpochMilli(response.timestampMs.toLong())
+    response.timestampSeconds?.let {
+      return Instant.ofEpochMilli((it * 1000.0).roundToLong())
     }
-    if (response.cacheTimestampMs != null) {
-      return Instant.ofEpochMilli(response.cacheTimestampMs)
+    response.cacheTimestampMs?.let {
+      return Instant.ofEpochMilli(it.toLong())
     }
     return Instant.now(clock)
   }

@@ -1,27 +1,31 @@
 package eu.slickbot.airnav.ui.map
 
 import android.content.Intent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsBoat
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -31,18 +35,24 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
+import eu.slickbot.airnav.R
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.info.AircraftFlightAirport
+import eu.slickbot.airnav.data.adsb.info.AircraftFlightRoute
 import eu.slickbot.airnav.data.adsb.info.AircraftInfo
 import eu.slickbot.airnav.data.adsb.info.AircraftInfoLink
 import eu.slickbot.airnav.data.adsb.info.AircraftSpecs
@@ -51,6 +61,7 @@ import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselInfoLink
 import eu.slickbot.airnav.ui.theme.AccentBlue
 import eu.slickbot.airnav.ui.theme.AccentTeal
+import kotlinx.coroutines.launch
 
 private data class LabeledLink(val label: String, val url: String)
 
@@ -68,18 +79,34 @@ fun DetailSheet(
   onFollowChange: (Boolean) -> Unit,
   onDismiss: () -> Unit,
 ) {
-  val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-  ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+  // Opens partially expanded (half); drag up for full, content scrolls if taller.
+  val state = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+  val scope = rememberCoroutineScope()
+  val onFollow: (Boolean) -> Unit = { enabled ->
+    onFollowChange(enabled)
+    // Half-expand so the followed target is visible on the map above the sheet.
+    if (enabled) scope.launch { state.partialExpand() }
+  }
+  ModalBottomSheet(
+    onDismissRequest = onDismiss,
+    sheetState = state,
+    scrimColor = androidx.compose.ui.graphics.Color.Transparent,
+  ) {
     Column(
       modifier = Modifier
         .fillMaxWidth()
+        .verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp, vertical = 8.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-      Header(selection, following, onFollowChange)
+      Header(selection, following, onFollow)
       when (selection) {
         is MapSelection.Plane -> {
-          PhotoGallery(planeEnrichment?.photoUrls.orEmpty(), contentDescription = "Aircraft photo")
+          planeEnrichment?.flightRoute?.let { RouteRow(it) }
+          PhotoGallery(
+            planeEnrichment?.photoUrls.orEmpty() + planeEnrichment?.modelPhotoUrls.orEmpty(),
+            contentDescription = "Aircraft photo",
+          )
           Section("Live ADS-B") { PlaneLiveRows(selection.aircraft) }
           planeEnrichment?.let { info ->
             if (info.hasAircraftRows()) {
@@ -88,16 +115,6 @@ fun DetailSheet(
             info.specs?.let { specs ->
               if (specs.hasAny()) {
                 Section("Specifications") { SpecRows(specs) }
-              }
-            }
-            info.flightRoute?.let { route ->
-              Section("Flight route") {
-                FlightRouteBlock(
-                  airlineName = route.airline?.name,
-                  origin = route.origin,
-                  destination = route.destination,
-                  midpoint = route.midpoint,
-                )
               }
             }
             if (info.infoLinks.isNotEmpty()) {
@@ -171,7 +188,7 @@ private fun Header(
 
 @Composable
 private fun Section(title: String, content: @Composable () -> Unit) {
-  Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+  Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
     Row(verticalAlignment = Alignment.CenterVertically) {
       Text(
         text = title.uppercase(),
@@ -188,31 +205,27 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 
 @Composable
 private fun PhotoGallery(urls: List<String>, contentDescription: String) {
-  if (urls.isEmpty()) return
-  if (urls.size == 1) {
-    AsyncImage(
-      model = urls.single(),
-      contentDescription = contentDescription,
-      contentScale = ContentScale.Crop,
-      modifier = Modifier
-        .fillMaxWidth()
-        .aspectRatio(16f / 9f)
-        .clip(RoundedCornerShape(14.dp)),
-    )
-    return
-  }
-  LazyRow(
-    horizontalArrangement = Arrangement.spacedBy(8.dp),
-    modifier = Modifier.fillMaxWidth().height(180.dp),
+  val photos = remember(urls) { urls.filter { it.isNotBlank() }.distinct().take(2) }
+  if (photos.isEmpty()) return
+  // Drop images that fail to load (hot-link blocked / 404) so we never show
+  // empty boxes — matches the webclient's onError-hide behavior.
+  val failed = remember(urls) { mutableStateListOf<String>() }
+  val shown = photos.filter { it !in failed }
+  if (shown.isEmpty()) return
+  Row(
+    modifier = Modifier.fillMaxWidth().height(96.dp),
+    horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    items(urls) { url ->
+    shown.forEach { url ->
       AsyncImage(
         model = url,
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
+        onError = { failed.add(url) },
         modifier = Modifier
-          .aspectRatio(16f / 9f)
-          .clip(RoundedCornerShape(14.dp)),
+          .weight(1f)
+          .fillMaxHeight()
+          .clip(RoundedCornerShape(8.dp)),
       )
     }
   }
@@ -256,35 +269,45 @@ private fun SpecRows(specs: AircraftSpecs) {
   specs.maxClimbRateFtMin?.let { DetailRow("Climb rate", "$it ft/min") }
 }
 
+/** Origin → destination shown directly under the header (webclient style). */
 @Composable
-private fun FlightRouteBlock(
-  airlineName: String?,
-  origin: AircraftFlightAirport?,
-  destination: AircraftFlightAirport?,
-  midpoint: AircraftFlightAirport?,
-) {
-  airlineName?.let {
-    Text(it, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-  }
-  if (origin != null || destination != null) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      origin?.let { Text(airportLabel(it), style = MaterialTheme.typography.bodyMedium) }
-      midpoint?.let {
-        Text(" → ", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(airportLabel(it), style = MaterialTheme.typography.bodyMedium)
-      }
-      destination?.let {
-        Text(" → ", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(airportLabel(it), style = MaterialTheme.typography.bodyMedium)
-      }
-    }
+private fun RouteRow(route: AircraftFlightRoute) {
+  if (route.origin == null && route.destination == null) return
+  Row(
+    modifier = Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp),
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    AirportEnd(route.origin, alignEnd = false, modifier = Modifier.weight(1f))
+    Text(
+      "→",
+      style = MaterialTheme.typography.titleMedium,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+      modifier = Modifier.padding(horizontal = 10.dp),
+    )
+    AirportEnd(route.destination, alignEnd = true, modifier = Modifier.weight(1f))
   }
 }
 
-private fun airportLabel(a: AircraftFlightAirport): String {
-  val code = a.icao ?: a.iata ?: "?"
-  val place = a.municipality ?: a.name
-  return if (place.isNullOrBlank()) code else "$code · $place"
+@Composable
+private fun AirportEnd(airport: AircraftFlightAirport?, alignEnd: Boolean, modifier: Modifier) {
+  Column(
+    modifier = modifier,
+    horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
+  ) {
+    Text(
+      text = airport?.iata ?: airport?.icao ?: "—",
+      style = MaterialTheme.typography.titleMedium,
+      fontWeight = FontWeight.Bold,
+    )
+    val city = airport?.municipality ?: airport?.name
+    if (!city.isNullOrBlank()) {
+      Text(
+        text = city,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+  }
 }
 
 @Composable
@@ -299,35 +322,54 @@ private fun TrackingLinks(links: List<VesselInfoLink>) {
   TrackingLinksImpl(links.map { it.asLabeled() })
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TrackingLinksImpl(links: List<LabeledLink>) {
   val context = LocalContext.current
-  Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+  FlowRow(
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
+  ) {
     links.forEach { link ->
-      Row(
+      val brand = brandDrawable(link.label)
+      Box(
         modifier = Modifier
-          .fillMaxWidth()
-          .clickable {
-            context.startActivity(Intent(Intent.ACTION_VIEW, link.url.toUri()))
-          }
-          .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+          .size(34.dp)
+          .clip(RoundedCornerShape(8.dp))
+          .border(1.dp, AccentBlue.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+          .background(AccentBlue.copy(alpha = 0.10f))
+          .clickable { context.startActivity(Intent(Intent.ACTION_VIEW, link.url.toUri())) },
+        contentAlignment = Alignment.Center,
       ) {
-        Text(
-          text = link.label,
-          style = MaterialTheme.typography.bodyMedium,
-          color = AccentBlue,
-          modifier = Modifier.weight(1f),
-        )
-        Icon(
-          Icons.Filled.OpenInNew,
-          contentDescription = null,
-          tint = AccentBlue,
-          modifier = Modifier.size(16.dp),
-        )
+        if (brand != null) {
+          Image(
+            painter = painterResource(brand),
+            contentDescription = link.label,
+            modifier = Modifier.size(18.dp),
+          )
+        } else {
+          Icon(
+            Icons.Filled.OpenInNew,
+            contentDescription = link.label,
+            tint = AccentBlue,
+            modifier = Modifier.size(16.dp),
+          )
+        }
       }
     }
+  }
+}
+
+private fun brandDrawable(label: String): Int? {
+  return when {
+    label.contains("ADS-B Exchange", ignoreCase = true) || label.contains("adsbexchange", ignoreCase = true) ->
+      R.drawable.link_adsbexchange
+    label.contains("AirHistory", ignoreCase = true) || label.contains("air history", ignoreCase = true) ->
+      R.drawable.link_airhistory
+    label.contains("PlaneSpotters", ignoreCase = true) || label.contains("planespotter", ignoreCase = true) ->
+      R.drawable.link_planespotters
+    else -> null
   }
 }
 
@@ -358,20 +400,20 @@ private fun ShipEnrichmentRows(details: VesselDetails) {
 @Composable
 private fun DetailRow(label: String, value: String) {
   Row(
-    modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+    modifier = Modifier.fillMaxWidth(),
     horizontalArrangement = Arrangement.SpaceBetween,
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Text(
       text = label,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
-      style = MaterialTheme.typography.bodyMedium,
+      style = MaterialTheme.typography.bodySmall,
     )
     Text(
       text = value,
       fontFamily = if (isNumericValue(value)) FontFamily.Monospace else FontFamily.Default,
       fontWeight = FontWeight.Medium,
-      style = MaterialTheme.typography.bodyMedium,
+      style = MaterialTheme.typography.bodySmall,
     )
   }
 }

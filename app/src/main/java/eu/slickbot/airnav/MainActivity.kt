@@ -12,20 +12,20 @@ import eu.slickbot.airnav.ui.map.MapScreen
 import eu.slickbot.airnav.ui.theme.AirnavTheme
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            AirnavApp()
-        }
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    enableEdgeToEdge()
+    setContent {
+      AirnavApp()
     }
+  }
 }
 
 @Composable
 private fun AirnavApp() {
-    AirnavTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            MapScreen()
-        }
+  AirnavTheme {
+    Surface(modifier = Modifier.fillMaxSize()) {
+      MapScreen()
     }
+  }
 }

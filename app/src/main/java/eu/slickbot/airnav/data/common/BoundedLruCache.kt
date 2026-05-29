@@ -7,47 +7,47 @@ package eu.slickbot.airnav.data.common
  * Ported from drone-swarm-v9 commander/data/common/BoundedTtlCache.kt (same file).
  */
 class BoundedLruCache<K : Any, V : Any>(
-    private val maxSize: Int,
+  private val maxSize: Int,
 ) {
 
-    init {
-        require(maxSize > 0) { "maxSize must be positive, was $maxSize" }
+  init {
+    require(maxSize > 0) { "maxSize must be positive, was $maxSize" }
+  }
+
+  private val map: LinkedHashMap<K, V> =
+    object : LinkedHashMap<K, V>(16, 0.75f, /* accessOrder = */ true) {
+      override fun removeEldestEntry(eldest: Map.Entry<K, V>): Boolean = size > maxSize
     }
 
-    private val map: LinkedHashMap<K, V> =
-        object : LinkedHashMap<K, V>(16, 0.75f, /* accessOrder = */ true) {
-            override fun removeEldestEntry(eldest: Map.Entry<K, V>): Boolean = size > maxSize
-        }
+  private val lock = Any()
 
-    private val lock = Any()
+  fun get(key: K): V? {
+    synchronized(lock) { return map[key] }
+  }
 
-    fun get(key: K): V? {
-        synchronized(lock) { return map[key] }
+  fun put(key: K, value: V) {
+    synchronized(lock) { map[key] = value }
+  }
+
+  fun getOrPut(key: K, loader: () -> V): V {
+    synchronized(lock) {
+      val existing = map[key]
+      if (existing != null) return existing
+      val value = loader()
+      map[key] = value
+      return value
     }
+  }
 
-    fun put(key: K, value: V) {
-        synchronized(lock) { map[key] = value }
-    }
+  fun remove(key: K): V? {
+    synchronized(lock) { return map.remove(key) }
+  }
 
-    fun getOrPut(key: K, loader: () -> V): V {
-        synchronized(lock) {
-            val existing = map[key]
-            if (existing != null) return existing
-            val value = loader()
-            map[key] = value
-            return value
-        }
-    }
+  fun clear() {
+    synchronized(lock) { map.clear() }
+  }
 
-    fun remove(key: K): V? {
-        synchronized(lock) { return map.remove(key) }
-    }
-
-    fun clear() {
-        synchronized(lock) { map.clear() }
-    }
-
-    fun size(): Int {
-        synchronized(lock) { return map.size }
-    }
+  fun size(): Int {
+    synchronized(lock) { return map.size }
+  }
 }

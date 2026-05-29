@@ -20,10 +20,12 @@ data class ReadSbJv2Response(
   @SerialName("ac") @JsonNames("aircraft")
   val aircraft: List<ReadSbJv2Aircraft> = emptyList(),
   @SerialName("msg") val message: String? = null,
-  @SerialName("now") val timestampMs: Double? = null,
+  // readsb sends `now` as Unix *seconds* (e.g. 1780046038.000), and `ctime`/`ptime`
+  // as fractional values — they MUST be Double or the whole response fails to decode.
+  @SerialName("now") val timestampSeconds: Double? = null,
   @SerialName("total") val totalAircraft: Int? = null,
-  @SerialName("ctime") val cacheTimestampMs: Long? = null,
-  @SerialName("ptime") val processingTimeMs: Long? = null,
+  @SerialName("ctime") val cacheTimestampMs: Double? = null,
+  @SerialName("ptime") val processingTimeMs: Double? = null,
 )
 
 /**

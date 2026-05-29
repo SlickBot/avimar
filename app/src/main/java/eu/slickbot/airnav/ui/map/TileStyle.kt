@@ -1,13 +1,13 @@
 package eu.slickbot.airnav.ui.map
 
 enum class TileStyle(val id: String, val displayName: String) {
-    CartoDark("cartoDark", "Dark"),
-    CartoLight("cartoLight", "Light"),
-    CartoVoyager("cartoVoyager", "Voyager"),
-    Osm("osm", "OSM"),
-    EsriSatellite("esriSat", "Satellite");
+  CartoDark("cartoDark", "Dark"),
+  CartoLight("cartoLight", "Light"),
+  CartoVoyager("cartoVoyager", "Voyager"),
+  Osm("osm", "OSM"),
+  EsriSatellite("esriSat", "Satellite");
 
-    companion object {
-        fun fromId(id: String?): TileStyle = entries.firstOrNull { it.id == id } ?: CartoDark
-    }
+  companion object {
+    fun fromId(id: String?): TileStyle = entries.firstOrNull { it.id == id } ?: CartoDark
+  }
 }

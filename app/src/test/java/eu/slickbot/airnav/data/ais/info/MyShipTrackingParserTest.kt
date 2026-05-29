@@ -6,11 +6,11 @@ import org.junit.Test
 
 class MyShipTrackingParserTest {
 
-    private val parser = MyShipTrackingParser()
+  private val parser = MyShipTrackingParser()
 
-    @Test
-    fun `parses MMSI, build year, dimensions, draught`() {
-        val html = """
+  @Test
+  fun `parses MMSI, build year, dimensions, draught`() {
+    val html = """
             <html><body>
               <h1>NORDIC STAR</h1>
               <h2>Container Ship</h2>
@@ -28,30 +28,30 @@ class MyShipTrackingParserTest {
             </body></html>
         """.trimIndent()
 
-        val result = parser.parse(html, "https://www.myshiptracking.com/vessels/255797000")
+    val result = parser.parse(html, "https://www.myshiptracking.com/vessels/255797000")
 
-        assertEquals("NORDIC STAR", result.name)
-        assertEquals("Container Ship", result.shipType)
-        assertEquals("CQAA", result.callsign)
-        assertEquals("Portugal", result.flag)
-        assertEquals(2005, result.buildYear)
-        assertEquals(54214, result.grossTonnage)
-        assertEquals(294.0, result.lengthMeters!!, 0.001)
-        assertEquals(32.0, result.beamMeters!!, 0.001)
-        assertEquals(11.8, result.draughtMeters!!, 0.001)
-        assertNotNull(result.photoUrl)
-    }
+    assertEquals("NORDIC STAR", result.name)
+    assertEquals("Container Ship", result.shipType)
+    assertEquals("CQAA", result.callsign)
+    assertEquals("Portugal", result.flag)
+    assertEquals(2005, result.buildYear)
+    assertEquals(54214, result.grossTonnage)
+    assertEquals(294.0, result.lengthMeters!!, 0.001)
+    assertEquals(32.0, result.beamMeters!!, 0.001)
+    assertEquals(11.8, result.draughtMeters!!, 0.001)
+    assertNotNull(result.photoUrl)
+  }
 
-    @Test
-    fun `falls back to h2 for ship type when Type field is missing`() {
-        val html = """
+  @Test
+  fun `falls back to h2 for ship type when Type field is missing`() {
+    val html = """
             <html><body>
               <h1>EXAMPLE</h1>
               <h2>Bulk Carrier</h2>
               <table><tr><th>MMSI</th><td>1</td></tr></table>
             </body></html>
         """.trimIndent()
-        val result = parser.parse(html, "")
-        assertEquals("Bulk Carrier", result.shipType)
-    }
+    val result = parser.parse(html, "")
+    assertEquals("Bulk Carrier", result.shipType)
+  }
 }

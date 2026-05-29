@@ -30,58 +30,58 @@ import eu.slickbot.airnav.ui.theme.AccentTeal
 
 @Composable
 fun WelcomeDialog(onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Welcome to airnav") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Live aircraft and ship tracking on one map.")
-                Bullet(
-                    icon = Icons.Filled.Flight,
-                    tint = AccentBlue,
-                    title = "Aircraft (ADS-B)",
-                    body = "Works out of the box. Switch between adsb.fi, adsb.lol and airplanes.live in the top bar.",
-                )
-                Bullet(
-                    icon = Icons.Filled.DirectionsBoat,
-                    tint = AccentTeal,
-                    title = "Ships (AIS)",
-                    body = "Optional — paste an aisstream.io API key in Settings to enable.",
-                )
-                Bullet(
-                    icon = Icons.Filled.TouchApp,
-                    tint = AccentAmber,
-                    title = "Tap any marker",
-                    body = "Details, photo and a Follow chip to keep the map locked on it.",
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Get started") }
-        },
-    )
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Welcome to airnav") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Live aircraft and ship tracking on one map.")
+        Bullet(
+          icon = Icons.Filled.Flight,
+          tint = AccentBlue,
+          title = "Aircraft (ADS-B)",
+          body = "Works out of the box. Switch between adsb.fi, adsb.lol and airplanes.live in the top bar.",
+        )
+        Bullet(
+          icon = Icons.Filled.DirectionsBoat,
+          tint = AccentTeal,
+          title = "Ships (AIS)",
+          body = "Optional — paste an aisstream.io API key in Settings to enable.",
+        )
+        Bullet(
+          icon = Icons.Filled.TouchApp,
+          tint = AccentAmber,
+          title = "Tap any marker",
+          body = "Details, photo and a Follow chip to keep the map locked on it.",
+        )
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = onDismiss) { Text("Get started") }
+    },
+  )
 }
 
 @Composable
 private fun Bullet(
-    icon: ImageVector,
-    tint: Color,
-    title: String,
-    body: String,
+  icon: ImageVector,
+  tint: Color,
+  title: String,
+  body: String,
 ) {
-    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(tint.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
-        }
-        Column {
-            Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+  Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Box(
+      modifier = Modifier
+        .size(32.dp)
+        .clip(CircleShape)
+        .background(tint.copy(alpha = 0.18f)),
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
     }
+    Column {
+      Text(title, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+      Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+  }
 }

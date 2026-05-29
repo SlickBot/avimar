@@ -20,35 +20,35 @@ import eu.slickbot.airnav.ui.common.OverlayCard
 
 @Composable
 fun TileStylePicker(
-    selected: TileStyle,
-    onSelect: (TileStyle) -> Unit,
-    modifier: Modifier = Modifier,
+  selected: TileStyle,
+  onSelect: (TileStyle) -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    OverlayCard(modifier = modifier) {
-        Icon(
-            Icons.Filled.Layers,
-            contentDescription = "Tile style: ${selected.displayName}",
-            modifier = Modifier
-                .clickable { expanded = true }
-                .padding(12.dp),
+  var expanded by remember { mutableStateOf(false) }
+  OverlayCard(modifier = modifier) {
+    Icon(
+      Icons.Filled.Layers,
+      contentDescription = "Tile style: ${selected.displayName}",
+      modifier = Modifier
+        .clickable { expanded = true }
+        .padding(12.dp),
+    )
+    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+      TileStyle.entries.forEach { style ->
+        val active = style == selected
+        DropdownMenuItem(
+          text = {
+            Text(
+              style.displayName,
+              fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+            )
+          },
+          onClick = {
+            expanded = false
+            onSelect(style)
+          },
         )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            TileStyle.entries.forEach { style ->
-                val active = style == selected
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            style.displayName,
-                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                        )
-                    },
-                    onClick = {
-                        expanded = false
-                        onSelect(style)
-                    },
-                )
-            }
-        }
+      }
     }
+  }
 }

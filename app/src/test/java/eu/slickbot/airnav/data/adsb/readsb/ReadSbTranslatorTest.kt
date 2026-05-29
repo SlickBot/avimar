@@ -117,7 +117,7 @@ class ReadSbTranslatorTest {
   fun `lastSeen subtracts secondsSinceMessage from capturedAt`() {
     val now = Instant.parse("2026-01-01T00:01:00Z")
     val resp = ReadSbJv2Response(
-      timestampMs = now.toEpochMilli().toDouble(),
+      timestampSeconds = now.epochSecond.toDouble(),
       aircraft = listOf(ReadSbJv2Aircraft(icaoHex = "a", secondsSinceMessage = 30.0)),
     )
     val r = translator(now).toSnapshot(resp).reports.single()
@@ -125,15 +125,16 @@ class ReadSbTranslatorTest {
   }
 
   @Test
-  fun `capturedAt prefers timestampMs then cacheTimestampMs then clock`() {
+  fun `capturedAt prefers now seconds then cacheTimestampMs then clock`() {
     val now = Instant.parse("2026-06-01T12:00:00Z")
+    // `now` is Unix seconds, translated to ms.
     val withTs = translator(now).toSnapshot(
-      ReadSbJv2Response(timestampMs = 1700000000000.0)
+      ReadSbJv2Response(timestampSeconds = 1700000000.0)
     ).capturedAt
     assertEquals(Instant.ofEpochMilli(1700000000000L), withTs)
 
     val withCtime = translator(now).toSnapshot(
-      ReadSbJv2Response(timestampMs = null, cacheTimestampMs = 1800000000000L)
+      ReadSbJv2Response(timestampSeconds = null, cacheTimestampMs = 1800000000000.0)
     ).capturedAt
     assertEquals(Instant.ofEpochMilli(1800000000000L), withCtime)
 

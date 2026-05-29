@@ -1,12 +1,20 @@
 package eu.slickbot.airnav.ui.map
 
 import android.graphics.RectF
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -34,6 +42,20 @@ fun MapLibreMapView(
   val context = LocalContext.current
   val mapView = remember { MapView(context).apply { onCreate(null) } }
   val lifecycleOwner = LocalLifecycleOwner.current
+  var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
+
+  // Inset the map's own decorations (compass / logo / attribution) so they clear
+  // the system bars now that the map is drawn edge-to-edge.
+  val density = LocalDensity.current
+  val topInset = WindowInsets.statusBars.getTop(density)
+  val bottomInset = WindowInsets.navigationBars.getBottom(density)
+  LaunchedEffect(mapLibreMap, topInset, bottomInset) {
+    val map = mapLibreMap ?: return@LaunchedEffect
+    val pad = with(density) { 8.dp.roundToPx() }
+    map.uiSettings.setCompassMargins(pad, topInset + pad, pad, pad)
+    map.uiSettings.setLogoMargins(pad, pad, pad, bottomInset + pad)
+    map.uiSettings.setAttributionMargins(pad, pad, pad, bottomInset + pad)
+  }
 
   DisposableEffect(lifecycleOwner, mapView) {
     val observer = LifecycleEventObserver { _, event ->
@@ -56,6 +78,10 @@ fun MapLibreMapView(
 
   LaunchedEffect(mapView) {
     mapView.getMapAsync { map ->
+      // Remove the MapLibre logo + attribution "ⓘ" watermark for a clean map.
+      map.uiSettings.isLogoEnabled = false
+      map.uiSettings.isAttributionEnabled = false
+      mapLibreMap = map
       map.moveCamera(
         CameraUpdateFactory.newCameraPosition(
           CameraPosition.Builder().target(LatLng(45.801, 15.165)).zoom(5.5).build(),

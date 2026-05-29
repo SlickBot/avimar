@@ -17,7 +17,6 @@ import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.iconAllowOverlap
-import org.maplibre.android.style.layers.PropertyFactory.iconColor
 import org.maplibre.android.style.layers.PropertyFactory.iconIgnorePlacement
 import org.maplibre.android.style.layers.PropertyFactory.iconImage
 import org.maplibre.android.style.layers.PropertyFactory.iconRotate
@@ -64,6 +63,7 @@ class MapController(private val map: MapLibreMap) {
   private var trailsEnabled = true
   private var aviationVisible = true
   private var maritimeVisible = true
+  private var markerScale = 1.0f
   private var selection: Selection? = null
 
   private val aircraftHistory = LinkedHashMap<String, ArrayDeque<DoubleArray>>()
@@ -123,8 +123,7 @@ class MapController(private val map: MapLibreMap) {
     return SymbolLayer(layerId, sourceId).withProperties(
       iconImage(Expression.get("category")),
       iconRotate(Expression.get("rotation")),
-      iconColor(Expression.get("color")),
-      iconSize(0.5f),
+      iconSize(BASE_ICON_SIZE * markerScale),
       iconAllowOverlap(true),
       iconIgnorePlacement(true),
       iconRotationAlignment(Property.ICON_ROTATION_ALIGNMENT_MAP),
@@ -139,6 +138,13 @@ class MapController(private val map: MapLibreMap) {
       textOptional(true),
       textAllowOverlap(false),
     )
+  }
+
+  fun setMarkerScale(scale: Float) {
+    markerScale = scale
+    val s = style ?: return
+    s.getLayer(AIRCRAFT_LAYER)?.setProperties(iconSize(BASE_ICON_SIZE * scale))
+    s.getLayer(VESSEL_LAYER)?.setProperties(iconSize(BASE_ICON_SIZE * scale))
   }
 
   // ---------- Aircraft / vessels ----------
@@ -159,11 +165,12 @@ class MapController(private val map: MapLibreMap) {
 
   private fun applyAircraft() {
     val features = aircraft.map { a ->
+      val category = adsbCategoryFor(a)
+      val rotation = if (category.noRotate) 0.0 else (a.trackDeg ?: 0.0)
       Feature.fromGeometry(Point.fromLngLat(a.lon, a.lat)).apply {
         addStringProperty("id", a.hex)
-        addStringProperty("category", aircraftIconCategory(a).image)
-        addStringProperty("color", aircraftColor(a.altitudeFt))
-        addNumberProperty("rotation", a.trackDeg ?: 0.0)
+        addStringProperty("category", category.code)
+        addNumberProperty("rotation", rotation)
         addStringProperty("label", aircraftLabel(a))
       }
     }
@@ -176,7 +183,6 @@ class MapController(private val map: MapLibreMap) {
       Feature.fromGeometry(Point.fromLngLat(v.lon, v.lat)).apply {
         addStringProperty("id", v.mmsi.toString())
         addStringProperty("category", vesselIconCategory(v).image)
-        addStringProperty("color", vesselColor(v.shipType))
         addNumberProperty("rotation", rotation)
         addStringProperty("label", vesselLabel(v))
       }
@@ -266,12 +272,31 @@ class MapController(private val map: MapLibreMap) {
 
   // ---------- Camera ----------
 
-  fun setCenter(lat: Double, lon: Double, zoom: Double?) {
+  fun setCenter(lat: Double, lon: Double, zoom: Double?, bottomPaddingPx: Double = 0.0) {
     val builder = CameraPosition.Builder().target(LatLng(lat, lon))
     if (zoom != null) {
       builder.zoom(zoom)
     }
+    // Bottom padding shifts the centered target up into the map area still
+    // visible above the detail sheet (used when following).
+    builder.padding(0.0, 0.0, 0.0, bottomPaddingPx)
     map.animateCamera(CameraUpdateFactory.newCameraPosition(builder.build()))
+  }
+
+  /** Clears any camera padding left over from follow mode (re-centers on the
+   *  current target with zero padding) so the map isn't offset after the sheet
+   *  closes. */
+  fun resetCameraPadding() {
+    val target = map.cameraPosition.target ?: return
+    map.moveCamera(
+      CameraUpdateFactory.newCameraPosition(
+        CameraPosition.Builder()
+          .target(target)
+          .zoom(map.cameraPosition.zoom)
+          .padding(0.0, 0.0, 0.0, 0.0)
+          .build(),
+      ),
+    )
   }
 
   fun zoomIn() {
@@ -323,6 +348,7 @@ class MapController(private val map: MapLibreMap) {
     const val SELECTION_LAYER = "selection-layer"
 
     private const val MAX_TRAIL_POINTS = 40
+    private const val BASE_ICON_SIZE = 0.8f
     private const val AIRCRAFT_TRAIL_COLOR = "#4fc3f7"
     private const val VESSEL_TRAIL_COLOR = "#80cbc4"
   }

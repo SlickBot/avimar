@@ -16,6 +16,7 @@ import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselEnricher
 import eu.slickbot.airnav.data.ais.translate.AisStreamHealth
+import eu.slickbot.airnav.data.common.NetworkTuning
 import eu.slickbot.airnav.data.location.LatLon
 import eu.slickbot.airnav.data.location.LocationProvider
 import eu.slickbot.airnav.data.settings.SecureKeyStore
@@ -60,8 +61,54 @@ class MapViewModel(
 ) : ViewModel() {
 
   private val _viewport = MutableStateFlow<Viewport?>(null)
+  // Raw aircraft from the last fetch. Used directly by selection / enrichment
+  // lookups; the public [aircraft] flow applies the user's filters for the map.
   private val _aircraft = MutableStateFlow<List<Aircraft>>(emptyList())
-  val aircraft: StateFlow<List<Aircraft>> = _aircraft.asStateFlow()
+
+  private val aircraftFilter: StateFlow<AircraftFilter> = combine(
+    settings.minAltitudeFt,
+    settings.maxAltitudeFt,
+    settings.hideGrounded,
+    settings.hiddenAircraftCategories,
+  ) { min, max, hideGrounded, hidden ->
+    AircraftFilter(
+      minAltitudeFt = min,
+      maxAltitudeFt = max,
+      hideGrounded = hideGrounded,
+      hiddenCategoryCodes = hidden,
+    )
+  }.stateIn(viewModelScope, SharingStarted.Eagerly, AircraftFilter.NONE)
+
+  /** Aircraft as drawn on the map: the latest fetch with the user's filters applied. */
+  val aircraft: StateFlow<List<Aircraft>> = combine(_aircraft, aircraftFilter) { list, filter ->
+    filter.apply(list)
+  }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+  val markerScale: StateFlow<Float> = settings.markerScale.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.Eagerly,
+    initialValue = 1.0f,
+  )
+
+  val adsbPollMs: StateFlow<Long> = settings.adsbPollMs.stateIn(
+    viewModelScope, SharingStarted.Eagerly, 0L,
+  )
+  val adsbTimeoutSec: StateFlow<Int> = settings.adsbTimeoutSec.stateIn(
+    viewModelScope, SharingStarted.Eagerly, 15,
+  )
+  val minAltitudeFt: StateFlow<Int?> = settings.minAltitudeFt.stateIn(
+    viewModelScope, SharingStarted.Eagerly, null,
+  )
+  val maxAltitudeFt: StateFlow<Int?> = settings.maxAltitudeFt.stateIn(
+    viewModelScope, SharingStarted.Eagerly, null,
+  )
+  val hideGrounded: StateFlow<Boolean> = settings.hideGrounded.stateIn(
+    viewModelScope, SharingStarted.Eagerly, false,
+  )
+  val hiddenAircraftCategories: StateFlow<Set<String>> = settings.hiddenAircraftCategories.stateIn(
+    viewModelScope, SharingStarted.Eagerly, emptySet(),
+  )
+
   val vessels: StateFlow<List<Vessel>> = aisRepo.vessels
   val aisConnection: StateFlow<AisConnectionState> = aisRepo.connectionState
 
@@ -184,21 +231,35 @@ class MapViewModel(
   val centerCommands: SharedFlow<CenterCommand> = _centerCommands.asSharedFlow()
 
   init {
-    // ADS-B polling loop.
+    // Apply the configurable request timeout to the shared HTTP fetchers.
+    viewModelScope.launch {
+      settings.adsbTimeoutSec.collect { seconds -> NetworkTuning.callTimeoutMs = seconds * 1000L }
+    }
+
+    // ADS-B polling loop. Uses the poll-interval override when set, else the
+    // provider default; emits immediately so the first fetch fires as soon as a
+    // viewport is known (and on every pan / provider switch).
     viewModelScope.launch {
       combine(
         _viewport.filterNotNull().debounce(300),
         provider,
-      ) { vp, p -> vp to p }
-        .flatMapLatest { (vp, p) ->
+        settings.adsbPollMs,
+      ) { vp, p, pollMs -> Triple(vp, p, pollMs) }
+        .flatMapLatest { (vp, p, pollMs) ->
+          val interval = if (pollMs > 0L) pollMs else p.minPollIntervalMs
+          // Sequential: each fetch fully completes — or is cancelled by a newer
+          // viewport/provider via flatMapLatest — before the next is scheduled.
+          // No overlap, and the interval is measured from completion, not a fixed
+          // wall-clock timer.
           flow {
             while (true) {
-              emit(vp to p)
-              delay(p.minPollIntervalMs)
+              fetchAdsb(p, vp)
+              emit(Unit)
+              delay(interval)
             }
           }
         }
-        .collect { (vp, p) -> fetchAdsb(p, vp) }
+        .collect { }
     }
 
     // AIS lifecycle.
@@ -296,6 +357,36 @@ class MapViewModel(
     }.onFailure { t ->
       Log.w(TAG, "ADS-B fetch failed (${provider.id}): ${t.message}")
     }
+  }
+
+  // ADS-B filter / fetch-tuning setters.
+
+  fun setMarkerScale(scale: Float) {
+    viewModelScope.launch { settings.setMarkerScale(scale) }
+  }
+
+  fun setAdsbPollMs(ms: Long) {
+    viewModelScope.launch { settings.setAdsbPollMs(ms) }
+  }
+
+  fun setAdsbTimeoutSec(seconds: Int) {
+    viewModelScope.launch { settings.setAdsbTimeoutSec(seconds) }
+  }
+
+  fun setMinAltitudeFt(ft: Int?) {
+    viewModelScope.launch { settings.setMinAltitudeFt(ft) }
+  }
+
+  fun setMaxAltitudeFt(ft: Int?) {
+    viewModelScope.launch { settings.setMaxAltitudeFt(ft) }
+  }
+
+  fun setHideGrounded(hide: Boolean) {
+    viewModelScope.launch { settings.setHideGrounded(hide) }
+  }
+
+  fun setHiddenAircraftCategories(categories: Set<String>) {
+    viewModelScope.launch { settings.setHiddenAircraftCategories(categories) }
   }
 
   class Factory(private val container: AppContainer) : ViewModelProvider.Factory {

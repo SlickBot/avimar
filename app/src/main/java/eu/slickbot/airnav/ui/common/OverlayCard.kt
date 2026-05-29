@@ -16,37 +16,37 @@ import androidx.compose.ui.unit.dp
 /** Translucent rounded card used for every floating UI overlay on the map. */
 @Composable
 fun OverlayCard(
-    modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(22.dp),
-    content: @Composable () -> Unit,
+  modifier: Modifier = Modifier,
+  shape: Shape = RoundedCornerShape(22.dp),
+  content: @Composable () -> Unit,
 ) {
-    Surface(
-        modifier = modifier.clip(shape),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 6.dp,
-        shadowElevation = 4.dp,
-        content = content,
-    )
+  Surface(
+    modifier = modifier.clip(shape),
+    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+    contentColor = MaterialTheme.colorScheme.onSurface,
+    tonalElevation = 6.dp,
+    shadowElevation = 4.dp,
+    content = content,
+  )
 }
 
 /** Circular icon button overlay matching OverlayCard's chrome. */
 @Composable
 fun CircleIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+  icon: ImageVector,
+  contentDescription: String,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier.clip(CircleShape),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = 6.dp,
-        shadowElevation = 4.dp,
-    ) {
-        IconButton(onClick = onClick) {
-            Icon(icon, contentDescription = contentDescription)
-        }
+  Surface(
+    modifier = modifier.clip(CircleShape),
+    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+    contentColor = MaterialTheme.colorScheme.onSurface,
+    tonalElevation = 6.dp,
+    shadowElevation = 4.dp,
+  ) {
+    IconButton(onClick = onClick) {
+      Icon(icon, contentDescription = contentDescription)
     }
+  }
 }
