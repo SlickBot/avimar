@@ -65,9 +65,9 @@ class AdsbProviderPipelineTest {
 
   @Test
   fun `rapid consecutive fetches are not rate-limited when minInterval is zero`() {
-    // Guards pan responsiveness: with the throwing limiter disabled (as wired in
-    // AppContainer), a pan-triggered refetch must succeed immediately, not be
-    // dropped and force a full poll-interval wait.
+    // Guards pan responsiveness: with the throwing limiter disabled, a
+    // pan-triggered refetch must succeed immediately, not be dropped and force a
+    // full poll-interval wait.
     server.enqueue(MockResponse().setResponseCode(200).setBody(fixture("adsblol_point.json")))
     server.enqueue(MockResponse().setResponseCode(200).setBody(fixture("adsblol_point.json")))
     val provider = AdsbLolProvider(

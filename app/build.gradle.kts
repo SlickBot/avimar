@@ -82,6 +82,8 @@ dependencies {
   implementation(libs.androidx.datastore.preferences)
   implementation(libs.jsoup)
   implementation(libs.coil.compose)
+  implementation(platform(libs.koin.bom))
+  implementation(libs.koin.androidx.compose)
 
   debugImplementation(libs.androidx.ui.tooling)
   debugImplementation(libs.androidx.compose.ui.test.manifest)

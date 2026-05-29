@@ -25,18 +25,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
-import eu.slickbot.airnav.appContainer
 import eu.slickbot.airnav.ui.common.CircleIconButton
 import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
 import eu.slickbot.airnav.ui.search.SearchHit
 import eu.slickbot.airnav.ui.search.SearchOverlay
 import eu.slickbot.airnav.ui.search.searchHits
+import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
@@ -44,17 +41,13 @@ import kotlinx.coroutines.flow.sample
 @OptIn(FlowPreview::class)
 @Composable
 fun MapScreen(modifier: Modifier = Modifier) {
-  val container = LocalContext.current.appContainer()
-  val viewModel: MapViewModel = viewModel(factory = MapViewModel.Factory(container))
+  val viewModel: MapViewModel = koinViewModel()
 
   var controller by remember { mutableStateOf<MapController?>(null) }
 
   // When following, push the camera target up into the map visible above the
   // (half-expanded) detail sheet — roughly half the screen of bottom padding.
-  val density = LocalDensity.current
-  val followBottomPaddingPx = with(density) {
-    (LocalConfiguration.current.screenHeightDp.dp.toPx() * 0.5f).toDouble()
-  }
+  val followBottomPaddingPx = LocalWindowInfo.current.containerSize.height * 0.5
 
   var showSettings by remember { mutableStateOf(false) }
   var showSearch by remember { mutableStateOf(false) }

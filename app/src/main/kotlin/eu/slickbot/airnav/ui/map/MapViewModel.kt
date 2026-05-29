@@ -2,9 +2,7 @@ package eu.slickbot.airnav.ui.map
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import eu.slickbot.airnav.AppContainer
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
@@ -387,22 +385,6 @@ class MapViewModel(
 
   fun setHiddenAircraftCategories(categories: Set<String>) {
     viewModelScope.launch { settings.setHiddenAircraftCategories(categories) }
-  }
-
-  class Factory(private val container: AppContainer) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-      require(modelClass.isAssignableFrom(MapViewModel::class.java))
-      return MapViewModel(
-        adsbRepo = container.adsbRepository,
-        aisRepo = container.aisRepository,
-        settings = container.settingsRepository,
-        secureStore = container.secureKeyStore,
-        locationProvider = container.locationProvider,
-        aircraftInfoProvider = container.aircraftInfoProvider,
-        vesselEnricher = container.vesselEnricher,
-      ) as T
-    }
   }
 
   companion object {
