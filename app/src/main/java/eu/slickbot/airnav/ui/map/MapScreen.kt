@@ -1,7 +1,6 @@
 package eu.slickbot.airnav.ui.map
 
 import android.Manifest
-import android.webkit.WebView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -45,8 +44,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val container = LocalContext.current.appContainer()
     val viewModel: MapViewModel = viewModel(factory = MapViewModel.Factory(container))
 
-    var webView by remember { mutableStateOf<WebView?>(null) }
-    val bridge = remember(webView) { webView?.let(::JsBridge) }
+    var controller by remember { mutableStateOf<MapController?>(null) }
 
     var showSettings by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
@@ -62,6 +60,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     val maritimeVisible by viewModel.maritimeVisible.collectAsStateWithLifecycle()
     val aisKey by viewModel.aisApiKey.collectAsStateWithLifecycle()
     val aisConnection by viewModel.aisConnection.collectAsStateWithLifecycle()
+    val aisHealth by viewModel.aisHealth.collectAsStateWithLifecycle()
     val selection by viewModel.selection.collectAsStateWithLifecycle()
     val following by viewModel.isFollowing.collectAsStateWithLifecycle()
     val planeEnrichment by viewModel.planeEnrichment.collectAsStateWithLifecycle()
@@ -79,12 +78,12 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        LeafletWebView(
+        MapLibreMapView(
             modifier = Modifier.fillMaxSize(),
             onViewportChanged = viewModel::onViewportChanged,
             onAircraftClick = viewModel::selectAircraft,
             onVesselClick = viewModel::selectVessel,
-            onReady = { webView = it },
+            onReady = { controller = it },
         )
 
         Row(
@@ -128,8 +127,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
         }
 
         ZoomControls(
-            onZoomIn = { bridge?.zoomIn() },
-            onZoomOut = { bridge?.zoomOut() },
+            onZoomIn = { controller?.zoomIn() },
+            onZoomOut = { controller?.zoomOut() },
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(end = 12.dp),
@@ -164,6 +163,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
             vesselCount = vessels.size,
             aisConnection = aisConnection,
             aisEnabled = aisEnabled && !aisKey.isNullOrBlank(),
+            aisHealth = aisHealth,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .navigationBarsPadding()
@@ -202,27 +202,27 @@ fun MapScreen(modifier: Modifier = Modifier) {
         WelcomeDialog(onDismiss = viewModel::markOnboardingSeen)
     }
 
-    // ---------- Bridge syncs (state → JS) ----------
+    // ---------- Controller syncs (state → map) ----------
 
-    LaunchedEffect(bridge, aircraft) { bridge?.updateAircraft(aircraft) }
+    LaunchedEffect(controller, aircraft) { controller?.updateAircraft(aircraft) }
 
-    LaunchedEffect(bridge) {
-        val b = bridge ?: return@LaunchedEffect
+    LaunchedEffect(controller) {
+        val b = controller ?: return@LaunchedEffect
         viewModel.vessels.sample(VESSEL_PUSH_INTERVAL_MS).collect { b.updateVessels(it) }
     }
 
-    LaunchedEffect(bridge, tileStyle) { bridge?.setTileStyle(tileStyle.id) }
-    LaunchedEffect(bridge, trailsEnabled) { bridge?.setTrailsEnabled(trailsEnabled) }
-    LaunchedEffect(bridge, aviationVisible) { bridge?.setAviationVisible(aviationVisible) }
-    LaunchedEffect(bridge, maritimeVisible) { bridge?.setMaritimeVisible(maritimeVisible) }
+    LaunchedEffect(controller, tileStyle) { controller?.setTileStyle(tileStyle.id) }
+    LaunchedEffect(controller, trailsEnabled) { controller?.setTrailsEnabled(trailsEnabled) }
+    LaunchedEffect(controller, aviationVisible) { controller?.setAviationVisible(aviationVisible) }
+    LaunchedEffect(controller, maritimeVisible) { controller?.setMaritimeVisible(maritimeVisible) }
 
-    LaunchedEffect(bridge) {
-        val b = bridge ?: return@LaunchedEffect
+    LaunchedEffect(controller) {
+        val b = controller ?: return@LaunchedEffect
         viewModel.centerCommands.collect { c -> b.setCenter(c.lat, c.lon, c.zoom) }
     }
 
-    LaunchedEffect(bridge, selection) {
-        val b = bridge ?: return@LaunchedEffect
+    LaunchedEffect(controller, selection) {
+        val b = controller ?: return@LaunchedEffect
         when (val s = selection) {
             is MapSelection.Plane -> b.setSelection("plane", s.aircraft.lat, s.aircraft.lon)
             is MapSelection.Ship -> b.setSelection("ship", s.vessel.lat, s.vessel.lon)
@@ -230,8 +230,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
         }
     }
 
-    LaunchedEffect(bridge) {
-        val b = bridge ?: return@LaunchedEffect
+    LaunchedEffect(controller) {
+        val b = controller ?: return@LaunchedEffect
         combine(viewModel.isFollowing, viewModel.selection) { f, s -> f to s }
             .collect { (follow, sel) ->
                 if (!follow || sel == null) return@collect

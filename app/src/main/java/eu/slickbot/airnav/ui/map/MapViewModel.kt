@@ -8,19 +8,21 @@ import eu.slickbot.airnav.AppContainer
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
-import eu.slickbot.airnav.data.adsb.AircraftDetails
-import eu.slickbot.airnav.data.adsb.AircraftEnricher
+import eu.slickbot.airnav.data.adsb.info.AircraftInfo
+import eu.slickbot.airnav.data.adsb.info.AircraftInfoProvider
 import eu.slickbot.airnav.data.ais.AisConnectionState
 import eu.slickbot.airnav.data.ais.AisRepository
 import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselEnricher
+import eu.slickbot.airnav.data.ais.translate.AisStreamHealth
 import eu.slickbot.airnav.data.location.LatLon
 import eu.slickbot.airnav.data.location.LocationProvider
 import eu.slickbot.airnav.data.settings.SecureKeyStore
 import eu.slickbot.airnav.data.settings.SettingsRepository
 import kotlin.math.ceil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,12 +34,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -48,7 +48,7 @@ sealed interface MapSelection {
 
 data class CenterCommand(val lat: Double, val lon: Double, val zoom: Double?)
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MapViewModel(
   private val adsbRepo: AdsbRepository,
   private val aisRepo: AisRepository,
@@ -65,7 +65,7 @@ class MapViewModel(
   val vessels: StateFlow<List<Vessel>> = aisRepo.vessels
   val aisConnection: StateFlow<AisConnectionState> = aisRepo.connectionState
 
-  val aisHealth: StateFlow<AisStreamHealth?> = flow<AisStreamHealth?> {
+  val aisHealth: StateFlow<AisStreamHealth?> = flow {
     while (true) {
       emit(aisRepo.health())
       delay(2_000L)
@@ -122,7 +122,7 @@ class MapViewModel(
   val onboardingSeen: StateFlow<Boolean> = settings.onboardingSeen.stateIn(
     scope = viewModelScope,
     started = SharingStarted.Eagerly,
-    initialValue = true, // assume seen until DataStore loads, so we don't flash the dialog
+    initialValue = true,
   )
 
   val selection: StateFlow<MapSelection?> = combine(
@@ -140,22 +140,25 @@ class MapViewModel(
 
   val planeEnrichment: StateFlow<AircraftInfo?> = _selectedAircraftHex
     .flatMapLatest { hex ->
-      if (hex == null) flowOf<AircraftInfo?>(null)
-      else flow {
-        emit(null)
-        val current = _aircraft.value.firstOrNull { it.hex == hex }
-        emit(
-          runCatching {
-            aircraftInfoProvider.fetch(
-              icao = hex,
-              callsign = current?.callsign,
-              registration = current?.registration,
-              typeDesignator = current?.type,
-              operator = null,
-              description = null,
-            )
-          }.getOrNull(),
-        )
+      if (hex == null) {
+        flowOf<AircraftInfo?>(null)
+      } else {
+        flow {
+          emit(null)
+          val current = _aircraft.value.firstOrNull { it.hex == hex }
+          emit(
+            runCatching {
+              aircraftInfoProvider.fetch(
+                icao = hex,
+                callsign = current?.callsign,
+                registration = current?.registration,
+                typeDesignator = current?.type,
+                operator = null,
+                description = null,
+              )
+            }.getOrNull(),
+          )
+        }
       }
     }
     .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
