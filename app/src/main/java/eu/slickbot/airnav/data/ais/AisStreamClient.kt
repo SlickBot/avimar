@@ -121,6 +121,9 @@ class AisStreamClient(
                 if (running) scheduleReconnect()
             }
         })
+
+        // Touch the key to keep the lazy retain alive in proguarded builds.
+        require(key.isNotBlank())
     }
 
     private fun sendSubscription() {

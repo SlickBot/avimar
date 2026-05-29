@@ -12,7 +12,6 @@ import androidx.core.content.edit
 private const val FILE = "airnav_secure"
 private const val KEY_AIS = "ais_api_key"
 
-@Suppress("DEPRECATION")
 class SecureKeyStore(context: Context) {
 
     private val prefs by lazy {
