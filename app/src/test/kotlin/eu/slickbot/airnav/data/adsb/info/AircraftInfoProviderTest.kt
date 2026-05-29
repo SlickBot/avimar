@@ -6,9 +6,7 @@ import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAircraftResponseBody
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAirline
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAirport
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbFlightRoute
-import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryPhoto
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryRegistrationResponse
-import eu.slickbot.airnav.data.adsb.info.airhistory.AircraftSummary
 import eu.slickbot.airnav.data.adsb.info.foxtrotcharlie.FoxtrotCharlieAircraftResponse
 import eu.slickbot.airnav.data.adsb.info.hexdb.HexdbAircraftResponse
 import kotlinx.coroutines.test.runTest

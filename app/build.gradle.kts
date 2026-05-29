@@ -2,7 +2,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
   alias(libs.plugins.android.application)
-  alias(libs.plugins.kotlin.android)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.kotlin.serialization)
 }
@@ -11,12 +10,15 @@ android {
   namespace = "eu.slickbot.airnav"
 
   defaultConfig {
-    applicationId = "eu.slickbot.airnav"
+    applicationId = namespace
+
     minSdk = 26
     targetSdk = 37
     compileSdk = 37
+
     versionCode = 1
     versionName = "0.1.0"
+
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
