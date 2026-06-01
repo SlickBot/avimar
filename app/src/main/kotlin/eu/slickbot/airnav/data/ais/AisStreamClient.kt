@@ -19,6 +19,7 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import okio.ByteString
 import java.util.concurrent.TimeUnit
 
 /**
@@ -96,13 +97,13 @@ class AisStreamClient(
         sendSubscription()
       }
 
+      // aisstream sends its JSON as binary frames, so handle both.
       override fun onMessage(webSocket: WebSocket, text: String) {
-        runCatching { json.decodeFromString(AisEnvelope.serializer(), text) }
-          .onSuccess {
-            translatedDuringSession += 1
-            _messages.tryEmit(it)
-          }
-          .onFailure { Log.w(TAG, "AIS parse failed: ${it.message}") }
+        handleFrame(webSocket, text)
+      }
+
+      override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
+        handleFrame(webSocket, bytes.utf8())
       }
 
       override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
@@ -123,6 +124,23 @@ class AisStreamClient(
         _connectionState.value = AisConnectionState.Disconnected
         if (running) scheduleReconnect()
       }
+
+      private fun handleFrame(socket: WebSocket, text: String) {
+        runCatching { json.decodeFromString(AisEnvelope.serializer(), text) }
+          .onSuccess { env ->
+            // Server-side error frames (bad key, malformed subscription, etc.)
+            // would otherwise be silently swallowed forever. Match v9: close the
+            // session so reconnect logic kicks in with backoff.
+            if (env.error != null) {
+              Log.w(TAG, "aisstream.error ${env.error}")
+              socket.close(SERVER_ERROR_CLOSE, "server_error")
+              return
+            }
+            translatedDuringSession += 1
+            _messages.tryEmit(env)
+          }
+          .onFailure { Log.w(TAG, "AIS parse failed: ${it.message}") }
+      }
     })
   }
 
@@ -140,7 +158,13 @@ class AisStreamClient(
       ),
     )
     val body = json.encodeToString(AisStreamSubscription.serializer(), payload)
-    ws.send(body)
+    // Subscription send is load-bearing: without it the server delivers nothing
+    // and the session sits silently. Match v9: drop the socket so reconnect
+    // retries with backoff instead of hanging.
+    if (!ws.send(body)) {
+      Log.w(TAG, "aisstream.subscription_send_failed")
+      ws.close(SUBSCRIPTION_FAIL_CLOSE, "subscription_send_failed")
+    }
   }
 
   private fun scheduleReconnect() {
@@ -157,6 +181,10 @@ class AisStreamClient(
     private const val TAG = "AisStreamClient"
     private const val MIN_BACKOFF_MS = 5_000L
     private const val MAX_BACKOFF_MS = 60_000L
+
+    // WebSocket close codes are app-defined in the 4000-4999 range.
+    private const val SERVER_ERROR_CLOSE = 4001
+    private const val SUBSCRIPTION_FAIL_CLOSE = 4002
 
     fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
       .connectTimeout(15, TimeUnit.SECONDS)

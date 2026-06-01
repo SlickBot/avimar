@@ -6,6 +6,15 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
+// .key holds a test AisStream API key (gitignored). Read at config time and
+// surfaced as BuildConfig.AIS_DEBUG_API_KEY in debug builds only - release is
+// always empty so the secret cannot ship.
+val aisDebugApiKey: String = rootProject.file(".key")
+  .takeIf { it.exists() }
+  ?.readText()
+  ?.trim()
+  .orEmpty()
+
 android {
   namespace = "eu.slickbot.airnav"
 
@@ -20,9 +29,14 @@ android {
     versionName = "0.1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    buildConfigField("String", "AIS_DEBUG_API_KEY", "\"\"")
   }
 
   buildTypes {
+    debug {
+      buildConfigField("String", "AIS_DEBUG_API_KEY", "\"$aisDebugApiKey\"")
+    }
     release {
       isMinifyEnabled = false
       proguardFiles(

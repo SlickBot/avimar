@@ -11,8 +11,11 @@
 local.properties
 *.apk
 *.aab
+
+# secret
 *.keystore
 *.jks
+.key
 
 # kotlin
 .kotlin
