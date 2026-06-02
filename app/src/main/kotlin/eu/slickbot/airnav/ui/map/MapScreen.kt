@@ -4,34 +4,34 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import eu.slickbot.airnav.ui.common.CircleIconButton
+import eu.slickbot.airnav.ui.map.settings.SettingsScreen
 import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
+import eu.slickbot.airnav.ui.search.SearchField
 import eu.slickbot.airnav.ui.search.SearchHit
-import eu.slickbot.airnav.ui.search.SearchOverlay
+import eu.slickbot.airnav.ui.search.SearchResults
 import eu.slickbot.airnav.ui.search.searchHits
 import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.FlowPreview
@@ -46,12 +46,17 @@ fun MapScreen(modifier: Modifier = Modifier) {
   var controller by remember { mutableStateOf<MapController?>(null) }
 
   // When following, push the camera target up into the map visible above the
-  // (half-expanded) detail sheet — roughly half the screen of bottom padding.
+  // (half-expanded) detail sheet - roughly half the screen of bottom padding.
   val followBottomPaddingPx = LocalWindowInfo.current.containerSize.height * 0.5
 
+  // Cap the legend panel at 75% of the window height so it tucks under the top bar.
+  val legendMaxHeight = with(LocalDensity.current) {
+    (LocalWindowInfo.current.containerSize.height * 0.75f).toDp()
+  }
+
   var showSettings by remember { mutableStateOf(false) }
-  var showSearch by remember { mutableStateOf(false) }
-  var showLegend by remember { mutableStateOf(false) }
+  var legendOpen by remember { mutableStateOf(false) }
+  var settingsTab by remember { mutableIntStateOf(0) }
   var searchQuery by remember { mutableStateOf("") }
 
   val aircraft by viewModel.aircraft.collectAsStateWithLifecycle()
@@ -71,12 +76,9 @@ fun MapScreen(modifier: Modifier = Modifier) {
   val shipEnrichment by viewModel.shipEnrichment.collectAsStateWithLifecycle()
   val onboardingSeen by viewModel.onboardingSeen.collectAsStateWithLifecycle()
   val markerScale by viewModel.markerScale.collectAsStateWithLifecycle()
-  val adsbPollMs by viewModel.adsbPollMs.collectAsStateWithLifecycle()
-  val adsbTimeoutSec by viewModel.adsbTimeoutSec.collectAsStateWithLifecycle()
-  val minAltitudeM by viewModel.minAltitudeM.collectAsStateWithLifecycle()
-  val maxAltitudeM by viewModel.maxAltitudeM.collectAsStateWithLifecycle()
-  val hideGrounded by viewModel.hideGrounded.collectAsStateWithLifecycle()
-  val hiddenCategories by viewModel.hiddenAircraftCategories.collectAsStateWithLifecycle()
+  val hiddenAircraft by viewModel.hiddenAircraftCategories.collectAsStateWithLifecycle()
+  val hiddenVesselCats by viewModel.hiddenVesselCategories.collectAsStateWithLifecycle()
+  val hiddenVesselStatuses by viewModel.hiddenVesselStatuses.collectAsStateWithLifecycle()
 
   val hits by remember(searchQuery, aircraft, vessels) {
     derivedStateOf { searchHits(searchQuery, aircraft, vessels) }
@@ -88,150 +90,125 @@ fun MapScreen(modifier: Modifier = Modifier) {
     if (result.values.any { it }) viewModel.centerOnUser()
   }
 
-  Box(modifier = modifier.fillMaxSize()) {
-    MapLibreMapView(
-      modifier = Modifier.fillMaxSize(),
-      onViewportChanged = viewModel::onViewportChanged,
-      onAircraftClick = viewModel::selectAircraft,
-      onVesselClick = viewModel::selectVessel,
-      onReady = { controller = it },
-    )
-
-    Row(
-      modifier = Modifier
-        .align(Alignment.TopStart)
-        .statusBarsPadding()
-        .padding(start = 12.dp, top = 12.dp, end = 12.dp)
-        .fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalAlignment = Alignment.CenterVertically,
-    ) {
-      ProviderPicker(selected = provider, onSelect = viewModel::selectProvider)
-      CircleIconButton(
-        icon = Icons.Filled.Search,
-        contentDescription = "Search",
-        onClick = { showSearch = true },
-      )
-      Box(modifier = Modifier.weight(1f))
-      TileStylePicker(selected = tileStyle, onSelect = viewModel::selectTileStyle)
-      CircleIconButton(
-        icon = Icons.Filled.MyLocation,
-        contentDescription = "Center on me",
-        onClick = {
-          if (viewModel.hasLocationPermission()) {
-            viewModel.centerOnUser()
-          } else {
-            locationLauncher.launch(
-              arrayOf(
-                Manifest.permission.ACCESS_COARSE_LOCATION,
-                Manifest.permission.ACCESS_FINE_LOCATION,
-              )
-            )
-          }
-        },
-      )
-      CircleIconButton(
-        icon = Icons.Filled.Tune,
-        contentDescription = "Settings",
-        onClick = { showSettings = true },
+  val onCenterOnUser = {
+    if (viewModel.hasLocationPermission()) {
+      viewModel.centerOnUser()
+    } else {
+      locationLauncher.launch(
+        arrayOf(
+          Manifest.permission.ACCESS_COARSE_LOCATION,
+          Manifest.permission.ACCESS_FINE_LOCATION,
+        )
       )
     }
-
-    if (showLegend) {
-      MapLegend(
-        modifier = Modifier
-          .align(Alignment.BottomStart)
-          .navigationBarsPadding()
-          .padding(start = 12.dp, bottom = 64.dp),
-      )
-    }
-
-    CircleIconButton(
-      icon = Icons.AutoMirrored.Filled.List,
-      contentDescription = "Legend",
-      onClick = { showLegend = !showLegend },
-      modifier = Modifier
-        .align(Alignment.BottomStart)
-        .navigationBarsPadding()
-        .padding(start = 12.dp, bottom = 14.dp),
-    )
-
-    ZoomControls(
-      onZoomIn = { controller?.zoomIn() },
-      onZoomOut = { controller?.zoomOut() },
-      modifier = Modifier
-        .align(Alignment.CenterEnd)
-        .padding(end = 12.dp),
-    )
-
-    SearchOverlay(
-      visible = showSearch,
-      query = searchQuery,
-      onQueryChange = { searchQuery = it },
-      hits = hits,
-      onHitTap = { hit ->
-        when (hit) {
-          is SearchHit.Plane -> viewModel.selectAircraft(hit.aircraft.hex)
-          is SearchHit.Ship -> viewModel.selectVessel(hit.vessel.mmsi)
-        }
-        viewModel.centerOn(hit.lat, hit.lon, zoom = 11.0)
-        showSearch = false
-        searchQuery = ""
-      },
-      onDismiss = {
-        showSearch = false
-        searchQuery = ""
-      },
-      modifier = Modifier
-        .align(Alignment.TopCenter)
-        .statusBarsPadding()
-        .padding(top = 72.dp, start = 12.dp, end = 12.dp),
-    )
-
-    StatusBar(
-      aircraftCount = aircraft.size,
-      vesselCount = vessels.size,
-      aisConnection = aisConnection,
-      aisEnabled = aisEnabled && !aisKey.isNullOrBlank(),
-      aisHealth = aisHealth,
-      modifier = Modifier
-        .align(Alignment.BottomCenter)
-        .navigationBarsPadding()
-        .padding(bottom = 14.dp),
-    )
   }
 
+  MapOverlayScaffold(
+    modifier = modifier,
+    mapContent = {
+      MapLibreMapView(
+        modifier = Modifier.fillMaxSize(),
+        onViewportChanged = viewModel::onViewportChanged,
+        onAircraftClick = viewModel::selectAircraft,
+        onVesselClick = viewModel::selectVessel,
+        onReady = { controller = it },
+      )
+    },
+    topBar = {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+      ) {
+        CircleIconButton(
+          icon = Icons.Filled.Menu,
+          contentDescription = "Menu",
+          onClick = { settingsTab = 0; showSettings = true },
+        )
+        SearchField(
+          query = searchQuery,
+          onQueryChange = { searchQuery = it },
+          modifier = Modifier.weight(1f),
+        )
+      }
+    },
+    rightCenter = {
+      if (!legendOpen) {
+        MapSideControls(
+          onZoomIn = { controller?.zoomIn() },
+          onZoomOut = { controller?.zoomOut() },
+          onCenterOnUser = onCenterOnUser,
+        )
+      }
+    },
+    bottomStart = {
+      StatusChip(
+        aircraftCount = aircraft.size,
+        vesselCount = vessels.size,
+        aisConnection = aisConnection,
+        aisEnabled = aisEnabled,
+        aisKeyMissing = aisKey.isNullOrBlank(),
+        aisHealth = aisHealth,
+        onAddAisKey = { settingsTab = 1; showSettings = true },
+      )
+    },
+    bottomEnd = {
+      if (legendOpen) {
+        LegendPanel(
+          hiddenAircraft = hiddenAircraft,
+          hiddenVesselCategories = hiddenVesselCats,
+          hiddenVesselStatuses = hiddenVesselStatuses,
+          onToggleAircraft = viewModel.settingsActions::toggleHiddenAircraftCategory,
+          onToggleVesselCategory = viewModel.settingsActions::toggleHiddenVesselCategory,
+          onToggleVesselStatus = viewModel.settingsActions::toggleHiddenVesselStatus,
+          onToggleAllAircraft = { allVisible ->
+            viewModel.setHiddenAircraftCategories(if (allVisible) ADSB_CATEGORIES.map { it.code }.toSet() else emptySet())
+          },
+          onToggleAllVesselCategories = { allVisible ->
+            viewModel.setHiddenVesselCategories(if (allVisible) VESSEL_CATEGORIES.map { it.code }.toSet() else emptySet())
+          },
+          onToggleAllVesselStatuses = { allVisible ->
+            viewModel.setHiddenVesselStatuses(if (allVisible) AIS_STATUS_CATEGORIES.map { it.code }.toSet() else emptySet())
+          },
+          modifier = Modifier.heightIn(max = legendMaxHeight),
+        )
+      }
+      LegendFab(expanded = legendOpen, onToggle = { legendOpen = !legendOpen })
+    },
+    floating = {
+      SearchResults(
+        query = searchQuery,
+        hits = hits,
+        onHitTap = { hit ->
+          when (hit) {
+            is SearchHit.Plane -> viewModel.selectAircraft(hit.aircraft.hex)
+            is SearchHit.Ship -> viewModel.selectVessel(hit.vessel.mmsi)
+          }
+          viewModel.centerOn(hit.lat, hit.lon, zoom = 11.0)
+          searchQuery = ""
+        },
+        // Drops below the single-row top bar (menu + search field).
+        modifier = Modifier
+          .align(Alignment.TopCenter)
+          .statusBarsPadding()
+          .padding(top = 72.dp, start = 12.dp, end = 12.dp),
+      )
+    },
+  )
+
   if (showSettings) {
-    SettingsDialog(
-      currentKey = aisKey,
-      aisEnabled = aisEnabled,
-      trailsEnabled = trailsEnabled,
-      aviationVisible = aviationVisible,
-      maritimeVisible = maritimeVisible,
-      hideGrounded = hideGrounded,
-      markerScale = markerScale,
-      pollMs = adsbPollMs,
-      timeoutSec = adsbTimeoutSec,
-      minAltitudeM = minAltitudeM,
-      maxAltitudeM = maxAltitudeM,
-      hiddenCategories = hiddenCategories,
-      onDismiss = { showSettings = false },
-      onSaveKey = viewModel::setAisApiKey,
-      onAisEnabledChange = viewModel::setAisEnabled,
-      onTrailsEnabledChange = viewModel::setTrailsEnabled,
-      onAviationVisibleChange = viewModel::setAviationVisible,
-      onMaritimeVisibleChange = viewModel::setMaritimeVisible,
-      onHideGroundedChange = viewModel::setHideGrounded,
-      onMarkerScaleChange = viewModel::setMarkerScale,
-      onPollMsChange = viewModel::setAdsbPollMs,
-      onTimeoutSecChange = viewModel::setAdsbTimeoutSec,
-      onMinAltitudeChange = viewModel::setMinAltitudeM,
-      onMaxAltitudeChange = viewModel::setMaxAltitudeM,
-      onToggleCategory = { name ->
-        val next = hiddenCategories.toMutableSet()
-        if (name in next) next.remove(name) else next.add(name)
-        viewModel.setHiddenAircraftCategories(next)
-      },
+    // Collect inside the conditional so MapScreen doesn't recompose on every
+    // settings tweak while the sheet is closed.
+    val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
+    SettingsScreen(
+      state = settingsState,
+      actions = viewModel.settingsActions,
+      tileStyle = tileStyle,
+      onSelectTileStyle = viewModel::selectTileStyle,
+      provider = provider,
+      onSelectProvider = viewModel::selectProvider,
+      initialTab = settingsTab,
+      onClose = { showSettings = false },
     )
   }
 
@@ -250,7 +227,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
     WelcomeDialog(onDismiss = viewModel::markOnboardingSeen)
   }
 
-  // ---------- Controller syncs (state → map) ----------
+  // ---------- Controller syncs (state -> map) ----------
 
   LaunchedEffect(controller, aircraft) { controller?.updateAircraft(aircraft) }
 

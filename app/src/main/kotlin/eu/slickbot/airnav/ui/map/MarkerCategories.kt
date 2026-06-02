@@ -44,6 +44,10 @@ private val categoriesByCode: Map<String, AdsbCategory> = ADSB_CATEGORIES.associ
 
 val OTHER_CATEGORY: AdsbCategory = categoriesByCode.getValue(OTHER_CATEGORY_CODE)
 
+fun adsbCategoryByCode(code: String): AdsbCategory {
+  return categoriesByCode[code] ?: OTHER_CATEGORY
+}
+
 fun adsbCategoryFor(aircraft: Aircraft): AdsbCategory {
   val code = aircraft.category?.trim()?.uppercase()
   return categoriesByCode[code] ?: OTHER_CATEGORY

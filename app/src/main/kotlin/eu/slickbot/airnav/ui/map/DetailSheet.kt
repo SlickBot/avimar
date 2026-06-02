@@ -35,9 +35,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -59,6 +62,7 @@ import eu.slickbot.airnav.data.adsb.info.AircraftSpecs
 import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselInfoLink
+import eu.slickbot.airnav.ui.common.PhotoViewer
 import eu.slickbot.airnav.ui.theme.AccentBlue
 import eu.slickbot.airnav.ui.theme.AccentTeal
 import kotlinx.coroutines.launch
@@ -213,11 +217,14 @@ private fun PhotoGallery(urls: List<String>, contentDescription: String) {
   val failed = remember(urls) { mutableStateListOf<String>() }
   val shown = photos.filter { it !in failed }
   if (shown.isEmpty()) return
+
+  var viewerIndex by remember { mutableStateOf<Int?>(null) }
+
   Row(
     modifier = Modifier.fillMaxWidth().height(96.dp),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    shown.forEach { url ->
+    shown.forEachIndexed { index, url ->
       AsyncImage(
         model = url,
         contentDescription = contentDescription,
@@ -226,9 +233,19 @@ private fun PhotoGallery(urls: List<String>, contentDescription: String) {
         modifier = Modifier
           .weight(1f)
           .fillMaxHeight()
-          .clip(RoundedCornerShape(8.dp)),
+          .clip(RoundedCornerShape(8.dp))
+          .clickable { viewerIndex = index },
       )
     }
+  }
+
+  viewerIndex?.let { idx ->
+    PhotoViewer(
+      urls = shown,
+      initialIndex = idx,
+      contentDescription = contentDescription,
+      onDismiss = { viewerIndex = null },
+    )
   }
 }
 

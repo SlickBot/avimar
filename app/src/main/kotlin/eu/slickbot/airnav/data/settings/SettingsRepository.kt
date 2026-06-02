@@ -73,6 +73,16 @@ class SettingsRepository(private val context: Context) {
     prefs[KEY_HIDDEN_CATEGORIES] ?: emptySet()
   }
 
+  /** Hidden vessel ship-type categories, by [VesselCategory.code] (e.g. "CARGO"). */
+  val hiddenVesselCategories: Flow<Set<String>> = store.data.map { prefs ->
+    prefs[KEY_HIDDEN_VESSEL_CATEGORIES] ?: emptySet()
+  }
+
+  /** Hidden vessel navigational statuses, by [AisStatusCategory.code] (e.g. "5"). */
+  val hiddenVesselStatuses: Flow<Set<String>> = store.data.map { prefs ->
+    prefs[KEY_HIDDEN_VESSEL_STATUSES] ?: emptySet()
+  }
+
   suspend fun setAdsbProvider(provider: AdsbProvider) {
     store.edit { it[KEY_ADSB_PROVIDER] = provider.id }
   }
@@ -129,6 +139,14 @@ class SettingsRepository(private val context: Context) {
     store.edit { it[KEY_HIDDEN_CATEGORIES] = categories }
   }
 
+  suspend fun setHiddenVesselCategories(categories: Set<String>) {
+    store.edit { it[KEY_HIDDEN_VESSEL_CATEGORIES] = categories }
+  }
+
+  suspend fun setHiddenVesselStatuses(statuses: Set<String>) {
+    store.edit { it[KEY_HIDDEN_VESSEL_STATUSES] = statuses }
+  }
+
   private companion object {
     val KEY_ADSB_PROVIDER = stringPreferencesKey("adsb_provider")
     val KEY_TILE_STYLE = stringPreferencesKey("tile_style")
@@ -144,5 +162,7 @@ class SettingsRepository(private val context: Context) {
     val KEY_MAX_ALT_M = intPreferencesKey("max_altitude_m")
     val KEY_HIDE_GROUNDED = booleanPreferencesKey("hide_grounded")
     val KEY_HIDDEN_CATEGORIES = stringSetPreferencesKey("hidden_categories")
+    val KEY_HIDDEN_VESSEL_CATEGORIES = stringSetPreferencesKey("hidden_vessel_categories")
+    val KEY_HIDDEN_VESSEL_STATUSES = stringSetPreferencesKey("hidden_vessel_statuses")
   }
 }

@@ -142,4 +142,15 @@ object MapIcons {
       style.addImage(category.image, polygonBitmap(points, colorHex), false)
     }
   }
+
+  /** Colored silhouette bitmap for an ADS-B category, for Compose legend rows. */
+  fun categoryBitmap(category: AdsbCategory): Bitmap {
+    return shapeBitmap(category.iconName, category.color)
+  }
+
+  /** Colored silhouette bitmap for a vessel icon category, for Compose legend rows. */
+  fun vesselBitmap(category: VesselIconCategory): Bitmap {
+    val (points, colorHex) = vesselShapes.getValue(category)
+    return polygonBitmap(points, colorHex)
+  }
 }

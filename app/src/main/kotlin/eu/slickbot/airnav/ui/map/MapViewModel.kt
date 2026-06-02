@@ -106,8 +106,24 @@ class MapViewModel(
   val hiddenAircraftCategories: StateFlow<Set<String>> = settings.hiddenAircraftCategories.stateIn(
     viewModelScope, SharingStarted.Eagerly, emptySet(),
   )
+  val hiddenVesselCategories: StateFlow<Set<String>> = settings.hiddenVesselCategories.stateIn(
+    viewModelScope, SharingStarted.Eagerly, emptySet(),
+  )
+  val hiddenVesselStatuses: StateFlow<Set<String>> = settings.hiddenVesselStatuses.stateIn(
+    viewModelScope, SharingStarted.Eagerly, emptySet(),
+  )
 
-  val vessels: StateFlow<List<Vessel>> = aisRepo.vessels
+  private val vesselFilter: StateFlow<VesselFilter> = combine(
+    settings.hiddenVesselCategories,
+    settings.hiddenVesselStatuses,
+  ) { categories, statuses ->
+    VesselFilter(hiddenCategoryCodes = categories, hiddenStatusCodes = statuses)
+  }.stateIn(viewModelScope, SharingStarted.Eagerly, VesselFilter.NONE)
+
+  /** Vessels as drawn on the map: the AIS feed with the user's filters applied. */
+  val vessels: StateFlow<List<Vessel>> = combine(aisRepo.vessels, vesselFilter) { list, filter ->
+    filter.apply(list)
+  }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
   val aisConnection: StateFlow<AisConnectionState> = aisRepo.connectionState
 
   val aisHealth: StateFlow<AisStreamHealth?> = flow {
@@ -158,6 +174,72 @@ class MapViewModel(
     started = SharingStarted.Eagerly,
     initialValue = null,
   )
+
+  // Settings sheet reads ~12 scalars; bundling lets the sheet take one snapshot
+  // instead of a dozen `by collectAsStateWithLifecycle()` lines at the call site.
+  val settingsState: StateFlow<SettingsState> = combine(
+    secureStore.aisApiKey,
+    settings.aisEnabled,
+    settings.trailsEnabled,
+    settings.aviationVisible,
+    settings.maritimeVisible,
+    settings.hideGrounded,
+    settings.markerScale,
+    settings.adsbPollMs,
+    settings.adsbTimeoutSec,
+    settings.minAltitudeM,
+    settings.maxAltitudeM,
+    settings.hiddenAircraftCategories,
+    settings.hiddenVesselCategories,
+    settings.hiddenVesselStatuses,
+  ) { values ->
+    @Suppress("UNCHECKED_CAST")
+    SettingsState(
+      aisApiKey = values[0] as String?,
+      aisEnabled = values[1] as Boolean,
+      trailsEnabled = values[2] as Boolean,
+      aviationVisible = values[3] as Boolean,
+      maritimeVisible = values[4] as Boolean,
+      hideGrounded = values[5] as Boolean,
+      markerScale = values[6] as Float,
+      adsbPollMs = values[7] as Long,
+      adsbTimeoutSec = values[8] as Int,
+      minAltitudeM = values[9] as Int?,
+      maxAltitudeM = values[10] as Int?,
+      hiddenAircraftCategories = values[11] as Set<String>,
+      hiddenVesselCategories = values[12] as Set<String>,
+      hiddenVesselStatuses = values[13] as Set<String>,
+    )
+  }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsState.Empty)
+
+  val settingsActions: SettingsActions = object : SettingsActions {
+    override fun setAisApiKey(value: String?) = this@MapViewModel.setAisApiKey(value)
+    override fun setAisEnabled(enabled: Boolean) = this@MapViewModel.setAisEnabled(enabled)
+    override fun setTrailsEnabled(enabled: Boolean) = this@MapViewModel.setTrailsEnabled(enabled)
+    override fun setAviationVisible(visible: Boolean) = this@MapViewModel.setAviationVisible(visible)
+    override fun setMaritimeVisible(visible: Boolean) = this@MapViewModel.setMaritimeVisible(visible)
+    override fun setHideGrounded(hide: Boolean) = this@MapViewModel.setHideGrounded(hide)
+    override fun setMarkerScale(scale: Float) = this@MapViewModel.setMarkerScale(scale)
+    override fun setAdsbPollMs(ms: Long) = this@MapViewModel.setAdsbPollMs(ms)
+    override fun setAdsbTimeoutSec(seconds: Int) = this@MapViewModel.setAdsbTimeoutSec(seconds)
+    override fun setMinAltitudeM(meters: Int?) = this@MapViewModel.setMinAltitudeM(meters)
+    override fun setMaxAltitudeM(meters: Int?) = this@MapViewModel.setMaxAltitudeM(meters)
+    override fun toggleHiddenAircraftCategory(code: String) {
+      val current = settingsState.value.hiddenAircraftCategories
+      val next = if (code in current) current - code else current + code
+      setHiddenAircraftCategories(next)
+    }
+    override fun toggleHiddenVesselCategory(code: String) {
+      val current = settingsState.value.hiddenVesselCategories
+      val next = if (code in current) current - code else current + code
+      setHiddenVesselCategories(next)
+    }
+    override fun toggleHiddenVesselStatus(code: String) {
+      val current = settingsState.value.hiddenVesselStatuses
+      val next = if (code in current) current - code else current + code
+      setHiddenVesselStatuses(next)
+    }
+  }
 
   private val _selectedAircraftHex = MutableStateFlow<String?>(null)
   private val _selectedVesselMmsi = MutableStateFlow<Long?>(null)
@@ -385,6 +467,14 @@ class MapViewModel(
 
   fun setHiddenAircraftCategories(categories: Set<String>) {
     viewModelScope.launch { settings.setHiddenAircraftCategories(categories) }
+  }
+
+  fun setHiddenVesselCategories(categories: Set<String>) {
+    viewModelScope.launch { settings.setHiddenVesselCategories(categories) }
+  }
+
+  fun setHiddenVesselStatuses(statuses: Set<String>) {
+    viewModelScope.launch { settings.setHiddenVesselStatuses(statuses) }
   }
 
   companion object {
