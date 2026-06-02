@@ -27,9 +27,7 @@ import androidx.compose.ui.unit.dp
 import eu.slickbot.airnav.data.ais.AisConnectionState
 import eu.slickbot.airnav.data.ais.translate.AisStreamHealth
 import eu.slickbot.airnav.ui.common.OverlayCard
-import eu.slickbot.airnav.ui.theme.AccentAmber
-import eu.slickbot.airnav.ui.theme.AccentBlue
-import eu.slickbot.airnav.ui.theme.AccentTeal
+import eu.slickbot.airnav.ui.theme.AirnavAccents
 import eu.slickbot.airnav.ui.theme.StatusConnected
 import eu.slickbot.airnav.ui.theme.StatusConnecting
 import eu.slickbot.airnav.ui.theme.StatusOffline
@@ -53,8 +51,8 @@ fun StatusChip(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      CountChip(Icons.Filled.Flight, aircraftCount, AccentBlue)
-      CountChip(Icons.Filled.DirectionsBoat, vesselCount, AccentTeal)
+      CountChip(Icons.Filled.Flight, aircraftCount, AirnavAccents.plane)
+      CountChip(Icons.Filled.DirectionsBoat, vesselCount, AirnavAccents.ship)
       AisIndicator(aisConnection, aisEnabled, aisKeyMissing, aisHealth, onAddAisKey)
     }
   }
@@ -84,7 +82,7 @@ private fun AisIndicator(
   val ageSec = health?.translatedAge?.seconds
   val stale = ageSec != null && ageSec > STALE_TRANSLATED_AGE_SECONDS
   val (color, baseLabel) = when {
-    keyMissing -> AccentAmber to "Add AIS key"
+    keyMissing -> AirnavAccents.alert to "Add AIS key"
     !enabled -> StatusOffline to "AIS off"
     state == AisConnectionState.Connected && stale -> StatusConnecting to "AIS stale"
     state == AisConnectionState.Connected -> StatusConnected to "AIS live"

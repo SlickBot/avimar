@@ -91,21 +91,6 @@ class MapViewModel(
     initialValue = 1.0f,
   )
 
-  val adsbPollMs: StateFlow<Long> = settings.adsbPollMs.stateIn(
-    viewModelScope, SharingStarted.Eagerly, 0L,
-  )
-  val adsbTimeoutSec: StateFlow<Int> = settings.adsbTimeoutSec.stateIn(
-    viewModelScope, SharingStarted.Eagerly, 15,
-  )
-  val minAltitudeM: StateFlow<Int?> = settings.minAltitudeM.stateIn(
-    viewModelScope, SharingStarted.Eagerly, null,
-  )
-  val maxAltitudeM: StateFlow<Int?> = settings.maxAltitudeM.stateIn(
-    viewModelScope, SharingStarted.Eagerly, null,
-  )
-  val hideGrounded: StateFlow<Boolean> = settings.hideGrounded.stateIn(
-    viewModelScope, SharingStarted.Eagerly, false,
-  )
   val hiddenAircraftCategories: StateFlow<Set<String>> = settings.hiddenAircraftCategories.stateIn(
     viewModelScope, SharingStarted.Eagerly, emptySet(),
   )

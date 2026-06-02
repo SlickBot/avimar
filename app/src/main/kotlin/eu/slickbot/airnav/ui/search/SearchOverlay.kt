@@ -30,8 +30,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.slickbot.airnav.data.search.RecentEntity
-import eu.slickbot.airnav.ui.theme.AccentBlue
-import eu.slickbot.airnav.ui.theme.AccentTeal
+import eu.slickbot.airnav.ui.theme.AirnavAccents
 
 /**
  * Full-screen-expanding search over the map. Collapsed: a pill with a search icon
@@ -170,9 +169,12 @@ private fun RecentRow(
   )
 }
 
-private fun iconAndTint(kind: RecentEntity.Kind): Pair<ImageVector, Color> = when (kind) {
-  RecentEntity.Kind.PLANE -> Icons.Filled.Flight to AccentBlue
-  RecentEntity.Kind.SHIP -> Icons.Filled.DirectionsBoat to AccentTeal
+@Composable
+private fun iconAndTint(kind: RecentEntity.Kind): Pair<ImageVector, Color> {
+  return when (kind) {
+    RecentEntity.Kind.PLANE -> Icons.Filled.Flight to AirnavAccents.plane
+    RecentEntity.Kind.SHIP -> Icons.Filled.DirectionsBoat to AirnavAccents.ship
+  }
 }
 
 private fun hitKey(hit: SearchHit): String = when (hit) {

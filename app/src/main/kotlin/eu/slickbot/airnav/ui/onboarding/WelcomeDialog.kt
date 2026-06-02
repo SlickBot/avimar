@@ -24,9 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import eu.slickbot.airnav.ui.theme.AccentAmber
-import eu.slickbot.airnav.ui.theme.AccentBlue
-import eu.slickbot.airnav.ui.theme.AccentTeal
+import eu.slickbot.airnav.ui.theme.AirnavAccents
 
 @Composable
 fun WelcomeDialog(onDismiss: () -> Unit) {
@@ -38,19 +36,19 @@ fun WelcomeDialog(onDismiss: () -> Unit) {
         Text("Live aircraft and ship tracking on one map.")
         Bullet(
           icon = Icons.Filled.Flight,
-          tint = AccentBlue,
+          tint = AirnavAccents.plane,
           title = "Aircraft (ADS-B)",
           body = "Works out of the box. Switch between adsb.fi, adsb.lol and airplanes.live in the top bar.",
         )
         Bullet(
           icon = Icons.Filled.DirectionsBoat,
-          tint = AccentTeal,
+          tint = AirnavAccents.ship,
           title = "Ships (AIS)",
           body = "Optional — paste an aisstream.io API key in Settings to enable.",
         )
         Bullet(
           icon = Icons.Filled.TouchApp,
-          tint = AccentAmber,
+          tint = AirnavAccents.alert,
           title = "Tap any marker",
           body = "Details, photo and a Follow chip to keep the map locked on it.",
         )

@@ -1,9 +1,34 @@
 package eu.slickbot.airnav.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+
+/**
+ * Semantic category accents (plane / ship / alert). The bright base accents are tuned
+ * for dark surfaces and wash out on light ones, so each resolves to its deepened
+ * variant under a light theme. Read these from a composable scope.
+ */
+object AirnavAccents {
+
+  val plane: Color
+    @Composable get() {
+      return if (isSystemInDarkTheme()) AccentBlue else AccentBlueLight
+    }
+
+  val ship: Color
+    @Composable get() {
+      return if (isSystemInDarkTheme()) AccentTeal else AccentTealLight
+    }
+
+  val alert: Color
+    @Composable get() {
+      return if (isSystemInDarkTheme()) AccentAmber else AccentAmberLight
+    }
+}
 
 private val DarkColors = darkColorScheme(
   primary = AccentBlue,
@@ -21,13 +46,29 @@ private val DarkColors = darkColorScheme(
   outline = OutlineDark,
 )
 
+private val LightColors = lightColorScheme(
+  primary = AccentBlueLight,
+  onPrimary = Color(0xFFFFFFFF),
+  secondary = AccentTealLight,
+  onSecondary = Color(0xFFFFFFFF),
+  tertiary = AccentAmberLight,
+  onTertiary = Color(0xFFFFFFFF),
+  background = BackgroundLight,
+  onBackground = OnSurfaceLight,
+  surface = SurfaceLight,
+  onSurface = OnSurfaceLight,
+  surfaceVariant = SurfaceElevatedLight,
+  onSurfaceVariant = OnSurfaceVariantLight,
+  outline = OutlineLight,
+)
+
 @Composable
 fun AirnavTheme(
+  darkTheme: Boolean = isSystemInDarkTheme(),
   content: @Composable () -> Unit,
 ) {
-  // We render on top of a dark Leaflet map; light theme isn't useful here.
   MaterialTheme(
-    colorScheme = DarkColors,
+    colorScheme = if (darkTheme) DarkColors else LightColors,
     content = content,
   )
 }

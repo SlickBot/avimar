@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
@@ -91,11 +92,14 @@ fun MapScreen(modifier: Modifier = Modifier) {
     derivedStateOf { searchHits(searchQuery, aircraft, vessels) }
   }
 
-  // Status-bar icons follow the surface behind them: dark icons on a light map,
-  // light icons on a dark map or over the expanded (dark) search surface / settings.
+  // Status-bar icons follow the surface behind them. The search/settings overlays paint a
+  // full-screen themed surface, so over them the icons track the app theme (dark icons in
+  // light theme, light icons in dark theme). On the bare map they track the tile brightness.
   val view = LocalView.current
   val activity = LocalActivity.current
-  val lightStatusBarIcons = !searchExpanded && !showSettings && tileStyle.isLight
+  val darkTheme = isSystemInDarkTheme()
+  val overlayOpen = searchExpanded || showSettings
+  val lightStatusBarIcons = if (overlayOpen) !darkTheme else tileStyle.isLight
   LaunchedEffect(lightStatusBarIcons, activity, view) {
     val window = activity?.window ?: return@LaunchedEffect
     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = lightStatusBarIcons

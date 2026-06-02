@@ -63,8 +63,7 @@ import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselInfoLink
 import eu.slickbot.airnav.ui.common.PhotoViewer
-import eu.slickbot.airnav.ui.theme.AccentBlue
-import eu.slickbot.airnav.ui.theme.AccentTeal
+import eu.slickbot.airnav.ui.theme.AirnavAccents
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -152,8 +151,8 @@ private fun Header(
   onFollowChange: (Boolean) -> Unit,
 ) {
   val (icon, accent) = when (selection) {
-    is MapSelection.Plane -> Icons.Filled.Flight to AccentBlue
-    is MapSelection.Ship -> Icons.Filled.DirectionsBoat to AccentTeal
+    is MapSelection.Plane -> Icons.Filled.Flight to AirnavAccents.plane
+    is MapSelection.Ship -> Icons.Filled.DirectionsBoat to AirnavAccents.ship
   }
   Row(
     modifier = Modifier.fillMaxWidth(),
@@ -349,14 +348,15 @@ private fun TrackingLinksImpl(links: List<LabeledLink>) {
     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
+    val accent = AirnavAccents.plane
     links.forEach { link ->
       val brand = brandDrawable(link.label)
       Box(
         modifier = Modifier
           .size(34.dp)
           .clip(RoundedCornerShape(8.dp))
-          .border(1.dp, AccentBlue.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-          .background(AccentBlue.copy(alpha = 0.10f))
+          .border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+          .background(accent.copy(alpha = 0.10f))
           .clickable { context.startActivity(Intent(Intent.ACTION_VIEW, link.url.toUri())) },
         contentAlignment = Alignment.Center,
       ) {
@@ -370,7 +370,7 @@ private fun TrackingLinksImpl(links: List<LabeledLink>) {
           Icon(
             Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = link.label,
-            tint = AccentBlue,
+            tint = accent,
             modifier = Modifier.size(16.dp),
           )
         }
