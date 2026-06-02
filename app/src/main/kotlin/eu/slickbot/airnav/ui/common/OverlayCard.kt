@@ -9,8 +9,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /** Translucent rounded card used for every floating UI overlay on the map. */
@@ -37,12 +39,14 @@ fun CircleIconButton(
   contentDescription: String,
   onClick: () -> Unit,
   modifier: Modifier = Modifier,
+  containerColor: Color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+  tonalElevation: Dp = 6.dp,
 ) {
   Surface(
     modifier = modifier.clip(CircleShape),
-    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+    color = containerColor,
     contentColor = MaterialTheme.colorScheme.onSurface,
-    tonalElevation = 6.dp,
+    tonalElevation = tonalElevation,
     shadowElevation = 4.dp,
   ) {
     IconButton(onClick = onClick) {

@@ -3,9 +3,9 @@ package eu.slickbot.airnav.ui.map
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.data.adsb.AdsbRepository
+import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.adsb.info.AircraftInfo
 import eu.slickbot.airnav.data.adsb.info.AircraftInfoProvider
 import eu.slickbot.airnav.data.ais.AisConnectionState
@@ -17,9 +17,10 @@ import eu.slickbot.airnav.data.ais.translate.AisStreamHealth
 import eu.slickbot.airnav.data.common.NetworkTuning
 import eu.slickbot.airnav.data.location.LatLon
 import eu.slickbot.airnav.data.location.LocationProvider
+import eu.slickbot.airnav.data.search.RecentEntity
+import eu.slickbot.airnav.data.search.SearchHistoryRepository
 import eu.slickbot.airnav.data.settings.SecureKeyStore
 import eu.slickbot.airnav.data.settings.SettingsRepository
-import kotlin.math.ceil
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.math.ceil
 
 sealed interface MapSelection {
   data class Plane(val aircraft: Aircraft) : MapSelection
@@ -56,6 +58,7 @@ class MapViewModel(
   private val locationProvider: LocationProvider,
   private val aircraftInfoProvider: AircraftInfoProvider,
   private val vesselEnricher: VesselEnricher,
+  private val searchHistory: SearchHistoryRepository,
 ) : ViewModel() {
 
   private val _viewport = MutableStateFlow<Viewport?>(null)
@@ -265,6 +268,12 @@ class MapViewModel(
     }
   }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+  val recentEntities: StateFlow<List<RecentEntity>> = searchHistory.recentEntities.stateIn(
+    scope = viewModelScope,
+    started = SharingStarted.Eagerly,
+    initialValue = emptyList(),
+  )
+
   val planeEnrichment: StateFlow<AircraftInfo?> = _selectedAircraftHex
     .flatMapLatest { hex ->
       if (hex == null) {
@@ -399,12 +408,22 @@ class MapViewModel(
     _selectedVesselMmsi.value = null
     _selectedAircraftHex.value = hex
     _following.value = false
+    _aircraft.value.firstOrNull { it.hex == hex }?.let { recordRecent(RecentEntity.fromAircraft(it)) }
   }
 
   fun selectVessel(mmsi: Long) {
     _selectedAircraftHex.value = null
     _selectedVesselMmsi.value = mmsi
     _following.value = false
+    aisRepo.vessels.value.firstOrNull { it.mmsi == mmsi }?.let { recordRecent(RecentEntity.fromVessel(it)) }
+  }
+
+  private fun recordRecent(entity: RecentEntity) {
+    viewModelScope.launch { searchHistory.add(entity) }
+  }
+
+  fun removeRecentEntity(entity: RecentEntity) {
+    viewModelScope.launch { searchHistory.remove(entity) }
   }
 
   fun clearSelection() {

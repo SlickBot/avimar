@@ -1,17 +1,20 @@
 package eu.slickbot.airnav.ui.map
 
 import android.Manifest
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -23,20 +26,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import eu.slickbot.airnav.data.search.RecentEntity
 import eu.slickbot.airnav.ui.common.CircleIconButton
 import eu.slickbot.airnav.ui.map.settings.SettingsScreen
 import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
-import eu.slickbot.airnav.ui.search.SearchField
+import eu.slickbot.airnav.ui.search.AirnavSearchBar
 import eu.slickbot.airnav.ui.search.SearchHit
-import eu.slickbot.airnav.ui.search.SearchResults
 import eu.slickbot.airnav.ui.search.searchHits
-import org.koin.androidx.compose.koinViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(FlowPreview::class)
 @Composable
@@ -58,6 +63,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
   var legendOpen by remember { mutableStateOf(false) }
   var settingsTab by remember { mutableIntStateOf(0) }
   var searchQuery by remember { mutableStateOf("") }
+  var searchExpanded by remember { mutableStateOf(false) }
 
   val aircraft by viewModel.aircraft.collectAsStateWithLifecycle()
   val vessels by viewModel.vessels.collectAsStateWithLifecycle()
@@ -79,9 +85,20 @@ fun MapScreen(modifier: Modifier = Modifier) {
   val hiddenAircraft by viewModel.hiddenAircraftCategories.collectAsStateWithLifecycle()
   val hiddenVesselCats by viewModel.hiddenVesselCategories.collectAsStateWithLifecycle()
   val hiddenVesselStatuses by viewModel.hiddenVesselStatuses.collectAsStateWithLifecycle()
+  val recents by viewModel.recentEntities.collectAsStateWithLifecycle()
 
   val hits by remember(searchQuery, aircraft, vessels) {
     derivedStateOf { searchHits(searchQuery, aircraft, vessels) }
+  }
+
+  // Status-bar icons follow the surface behind them: dark icons on a light map,
+  // light icons on a dark map or over the expanded (dark) search surface / settings.
+  val view = LocalView.current
+  val activity = LocalActivity.current
+  val lightStatusBarIcons = !searchExpanded && !showSettings && tileStyle.isLight
+  LaunchedEffect(lightStatusBarIcons, activity, view) {
+    val window = activity?.window ?: return@LaunchedEffect
+    WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = lightStatusBarIcons
   }
 
   val locationLauncher = rememberLauncherForActivityResult(
@@ -114,45 +131,14 @@ fun MapScreen(modifier: Modifier = Modifier) {
         onReady = { controller = it },
       )
     },
-    topBar = {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-      ) {
-        CircleIconButton(
-          icon = Icons.Filled.Menu,
-          contentDescription = "Menu",
-          onClick = { settingsTab = 0; showSettings = true },
-        )
-        SearchField(
-          query = searchQuery,
-          onQueryChange = { searchQuery = it },
-          modifier = Modifier.weight(1f),
-        )
-      }
-    },
     rightCenter = {
-      if (!legendOpen) {
-        MapSideControls(
-          onZoomIn = { controller?.zoomIn() },
-          onZoomOut = { controller?.zoomOut() },
-          onCenterOnUser = onCenterOnUser,
-        )
-      }
-    },
-    bottomStart = {
-      StatusChip(
-        aircraftCount = aircraft.size,
-        vesselCount = vessels.size,
-        aisConnection = aisConnection,
-        aisEnabled = aisEnabled,
-        aisKeyMissing = aisKey.isNullOrBlank(),
-        aisHealth = aisHealth,
-        onAddAisKey = { settingsTab = 1; showSettings = true },
+      MapSideControls(
+        onZoomIn = { controller?.zoomIn() },
+        onZoomOut = { controller?.zoomOut() },
+        onCenterOnUser = onCenterOnUser,
       )
     },
-    bottomEnd = {
+    bottomStart = {
       if (legendOpen) {
         LegendPanel(
           hiddenAircraft = hiddenAircraft,
@@ -175,10 +161,39 @@ fun MapScreen(modifier: Modifier = Modifier) {
       }
       LegendFab(expanded = legendOpen, onToggle = { legendOpen = !legendOpen })
     },
+    bottomEnd = {
+      StatusChip(
+        aircraftCount = aircraft.size,
+        vesselCount = vessels.size,
+        aisConnection = aisConnection,
+        aisEnabled = aisEnabled,
+        aisKeyMissing = aisKey.isNullOrBlank(),
+        aisHealth = aisHealth,
+        onAddAisKey = { settingsTab = 1; showSettings = true },
+      )
+    },
     floating = {
-      SearchResults(
+      // While expanded, paint a full-screen surface behind the search so the whole screen -
+      // status bar included - is one color we control. (M3's own expanded background is
+      // unreliable to colour-match; owning it makes the search bar, this surface, and the
+      // status bar identical by construction.)
+      if (searchExpanded) {
+        Box(
+          modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        )
+      }
+      // Reserve room on the right for the settings button while collapsed; 0 when expanded
+      // so the bar goes edge-to-edge.
+      val barEndReserve by animateDpAsState(if (searchExpanded) 0.dp else 64.dp, label = "barEndReserve")
+      AirnavSearchBar(
         query = searchQuery,
+        onQueryChange = { searchQuery = it },
+        expanded = searchExpanded,
+        onExpandedChange = { searchExpanded = it },
         hits = hits,
+        recents = recents,
         onHitTap = { hit ->
           when (hit) {
             is SearchHit.Plane -> viewModel.selectAircraft(hit.aircraft.hex)
@@ -186,13 +201,42 @@ fun MapScreen(modifier: Modifier = Modifier) {
           }
           viewModel.centerOn(hit.lat, hit.lon, zoom = 11.0)
           searchQuery = ""
+          searchExpanded = false
         },
-        // Drops below the single-row top bar (menu + search field).
+        onRecentTap = { entity ->
+          when (entity.kind) {
+            RecentEntity.Kind.PLANE -> viewModel.selectAircraft(entity.id)
+            RecentEntity.Kind.SHIP -> viewModel.selectVessel(entity.id.toLong())
+          }
+          viewModel.centerOn(entity.lat, entity.lon, zoom = 11.0)
+          searchQuery = ""
+          searchExpanded = false
+        },
+        onRecentRemove = viewModel::removeRecentEntity,
         modifier = Modifier
-          .align(Alignment.TopCenter)
+          .align(Alignment.TopStart)
           .statusBarsPadding()
-          .padding(top = 72.dp, start = 12.dp, end = 12.dp),
+          .padding(end = barEndReserve),
       )
+      // Settings button - positioned on its own (NOT inside the search layout) so the
+      // search expand/collapse animation never moves it. Hidden while expanded.
+      if (!searchExpanded) {
+        CircleIconButton(
+          icon = Icons.Filled.Settings,
+          contentDescription = "Settings",
+          onClick = { settingsTab = 0; showSettings = true },
+          modifier = Modifier
+            .align(Alignment.TopEnd)
+            .statusBarsPadding()
+            // Same height as the M3 search field so the two read as a matched pair; top
+            // nudge keeps the (now equal-height) centers aligned with the field.
+            .padding(top = 16.dp, end = 12.dp)
+            .size(56.dp),
+          // Match the search bar's flat surface.
+          containerColor = MaterialTheme.colorScheme.surface,
+          tonalElevation = 0.dp,
+        )
+      }
     },
   )
 

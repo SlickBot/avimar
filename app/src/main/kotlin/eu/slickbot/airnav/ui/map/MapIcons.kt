@@ -6,10 +6,10 @@ import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import androidx.core.graphics.PathParser
+import androidx.core.graphics.createBitmap
+import androidx.core.graphics.toColorInt
 import org.maplibre.android.maps.Style
 import kotlin.math.max
-import androidx.core.graphics.toColorInt
-import androidx.core.graphics.createBitmap
 
 /**
  * Generates per-category COLORED icon bitmaps and registers them (one image per

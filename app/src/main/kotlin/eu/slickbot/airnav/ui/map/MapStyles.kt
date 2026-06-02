@@ -1,5 +1,9 @@
 package eu.slickbot.airnav.ui.map
 
+import eu.slickbot.airnav.ui.map.MapStyles.GLYPHS_URL
+import eu.slickbot.airnav.ui.map.MapStyles.MARKER_FONT
+
+
 /**
  * Builds a MapLibre GL style spec (JSON) for a given [TileStyle], using a single
  * raster source + raster layer over the same tile providers the old Leaflet map

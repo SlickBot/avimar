@@ -1,10 +1,10 @@
 package eu.slickbot.airnav.di
 
 import eu.slickbot.airnav.data.adsb.AdsbRepository
-import eu.slickbot.airnav.data.adsb.info.buildAircraftInfoProvider
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbClient
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryClient
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryParser
+import eu.slickbot.airnav.data.adsb.info.buildAircraftInfoProvider
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643Client
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643LookupService
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643Parser
@@ -21,6 +21,7 @@ import eu.slickbot.airnav.data.ais.info.VesselEnricher
 import eu.slickbot.airnav.data.common.HttpTextFetcher
 import eu.slickbot.airnav.data.common.JsonTextFetcher
 import eu.slickbot.airnav.data.location.LocationProvider
+import eu.slickbot.airnav.data.search.SearchHistoryRepository
 import eu.slickbot.airnav.data.settings.SecureKeyStore
 import eu.slickbot.airnav.data.settings.SettingsRepository
 import eu.slickbot.airnav.ui.map.MapViewModel
@@ -97,6 +98,7 @@ val dataModule = module {
   }
   single { AisRepository() }
   single { SettingsRepository(androidContext()) }
+  single { SearchHistoryRepository(androidContext(), get()) }
   single { SecureKeyStore(androidContext()) }
   single { LocationProvider(androidContext()) }
   single { VesselEnricher() }
@@ -112,6 +114,7 @@ val viewModelModule = module {
       locationProvider = get(),
       aircraftInfoProvider = get(),
       vesselEnricher = get(),
+      searchHistory = get(),
     )
   }
 }
