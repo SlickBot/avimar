@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-  namespace = "eu.slickbot.airnav"
+  namespace = "eu.slickbot.avimar"
 
   defaultConfig {
     applicationId = namespace

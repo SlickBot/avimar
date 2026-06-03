@@ -25,5 +25,5 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "airnav"
+rootProject.name = "avimar"
 include(":app")

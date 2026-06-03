@@ -1,6 +1,6 @@
 """Smoke-test AIS Stream against the live WS. Reads .key from repo root.
 
-Run from the airnav repo root: `python3 scripts/ais_smoke.py [duration_seconds]`.
+Run from the avimar repo root: `python3 scripts/ais_smoke.py [duration_seconds]`.
 Prints a per-MessageType frame count + a sample envelope, then exits.
 """
 from __future__ import annotations
