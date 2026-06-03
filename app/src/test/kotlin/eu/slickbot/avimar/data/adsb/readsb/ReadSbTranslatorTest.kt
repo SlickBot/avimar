@@ -84,7 +84,7 @@ class ReadSbTranslatorTest {
   }
 
   @Test
-  fun `barometric altitude "ground" string is treated as zero`() {
+  fun `barometric altitude 'ground' string is treated as zero`() {
     val ac = ReadSbJv2Aircraft(
       icaoHex = "abc",
       geometricAltitudeFt = null,
@@ -143,7 +143,7 @@ class ReadSbTranslatorTest {
   }
 
   @Test
-  fun `adsb fi style payload with "aircraft" key decodes the same as "ac" key`() {
+  fun `adsb fi style payload with 'aircraft' key decodes the same as 'ac' key`() {
     val payloadAc = """{"ac":[{"hex":"abc","lat":1.0,"lon":2.0}],"now":0}"""
     val payloadAircraft = """{"aircraft":[{"hex":"abc","lat":1.0,"lon":2.0}],"now":0}"""
 
