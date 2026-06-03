@@ -134,7 +134,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
         onReady = { controller = it },
       )
     },
-    rightCenter = {
+    bottomEnd = {
       MapSideControls(
         onZoomIn = { controller?.zoomIn() },
         onZoomOut = { controller?.zoomOut() },
@@ -164,7 +164,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
       }
       LegendFab(expanded = legendOpen, onToggle = { legendOpen = !legendOpen })
     },
-    bottomEnd = {
+    bottomCenter = {
       StatusChip(
         aircraftCount = aircraft.size,
         vesselCount = vessels.size,
@@ -176,10 +176,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
       )
     },
     floating = {
-      // While expanded, paint a full-screen surface behind the search so the whole screen -
-      // status bar included - is one color we control. (M3's own expanded background is
-      // unreliable to colour-match; owning it makes the search bar, this surface, and the
-      // status bar identical by construction.)
       if (searchExpanded) {
         Box(
           modifier = Modifier
@@ -187,8 +183,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
             .background(MaterialTheme.colorScheme.surface),
         )
       }
-      // Reserve room on the right for the settings button while collapsed; 0 when expanded
-      // so the bar goes edge-to-edge.
       val barEndReserve by animateDpAsState(if (searchExpanded) 0.dp else 64.dp, label = "barEndReserve")
       AirnavSearchBar(
         query = searchQuery,
@@ -221,8 +215,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
           .statusBarsPadding()
           .padding(end = barEndReserve),
       )
-      // Settings button - positioned on its own (NOT inside the search layout) so the
-      // search expand/collapse animation never moves it. Hidden while expanded.
       if (!searchExpanded) {
         CircleIconButton(
           icon = Icons.Filled.Settings,
@@ -231,11 +223,8 @@ fun MapScreen(modifier: Modifier = Modifier) {
           modifier = Modifier
             .align(Alignment.TopEnd)
             .statusBarsPadding()
-            // Same height as the M3 search field so the two read as a matched pair; top
-            // nudge keeps the (now equal-height) centers aligned with the field.
-            .padding(top = 16.dp, end = 12.dp)
+            .padding(top = 8.dp, end = 12.dp)
             .size(56.dp),
-          // Match the search bar's flat surface.
           containerColor = MaterialTheme.colorScheme.surface,
           tonalElevation = 0.dp,
         )
@@ -244,8 +233,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
   )
 
   if (showSettings) {
-    // Collect inside the conditional so MapScreen doesn't recompose on every
-    // settings tweak while the sheet is closed.
     val settingsState by viewModel.settingsState.collectAsStateWithLifecycle()
     SettingsScreen(
       state = settingsState,

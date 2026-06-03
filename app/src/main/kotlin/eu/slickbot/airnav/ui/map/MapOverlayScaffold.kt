@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
  *   in a Column (8dp between rows).
  * - [bottomStart] stacks children bottom-up so things rendered later appear
  *   higher (e.g. a legend popout above its toggle).
+ * - [bottomCenter] holds a single overlay centered along the bottom edge
+ *   (e.g. the status chip between the FAB and the side controls).
  * - [bottomEnd] stacks children bottom-up in the bottom-right corner so things
  *   rendered later appear higher (e.g. a legend panel above its FAB).
  * - [floating] is an escape hatch for popovers that need custom positioning
@@ -34,7 +36,7 @@ import androidx.compose.ui.unit.dp
 fun MapOverlayScaffold(
   modifier: Modifier = Modifier,
   topBar: @Composable ColumnScope.() -> Unit = {},
-  rightCenter: @Composable () -> Unit = {},
+  bottomCenter: @Composable () -> Unit = {},
   bottomStart: @Composable ColumnScope.() -> Unit = {},
   bottomEnd: @Composable ColumnScope.() -> Unit = {},
   floating: @Composable BoxScope.() -> Unit = {},
@@ -55,9 +57,10 @@ fun MapOverlayScaffold(
 
     Box(
       modifier = Modifier
-        .align(Alignment.CenterEnd)
-        .padding(end = OVERLAY_PAD),
-    ) { rightCenter() }
+        .align(Alignment.BottomCenter)
+        .navigationBarsPadding()
+        .padding(bottom = OVERLAY_PAD + 2.dp),
+    ) { bottomCenter() }
 
     Column(
       modifier = Modifier

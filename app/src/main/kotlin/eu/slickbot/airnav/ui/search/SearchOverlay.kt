@@ -52,7 +52,7 @@ fun AirnavSearchBar(
   modifier: Modifier = Modifier,
 ) {
   val horizontalPadding by animateDpAsState(if (expanded) 0.dp else 12.dp, label = "searchHPad")
-  val verticalPadding by animateDpAsState(if (expanded) 0.dp else 8.dp, label = "searchVPad")
+  val verticalPadding by animateDpAsState(if (expanded) 0.dp else 0.dp, label = "searchVPad")
 
   SearchBar(
     modifier = modifier
