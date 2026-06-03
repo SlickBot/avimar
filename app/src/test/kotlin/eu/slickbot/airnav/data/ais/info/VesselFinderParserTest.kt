@@ -42,7 +42,7 @@ class VesselFinderParserTest {
     assertEquals(4.8, result.draughtMeters!!, 0.001)
     assertEquals(
       "https://static.vesselfinder.net/ship-photo/0-247053540-abcd/1?v1",
-      result.photoUrl,
+      result.photoUrls.firstOrNull(),
     )
   }
 
@@ -60,7 +60,7 @@ class VesselFinderParserTest {
     </html>
     """.trimIndent()
     val result = parser.parse(html, "https://www.vesselfinder.com/vessels/details/247053540")
-    assertNull(result.photoUrl)
+    assertNull(result.photoUrls.firstOrNull())
   }
 
   @Test

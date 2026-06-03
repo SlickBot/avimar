@@ -14,13 +14,6 @@ import org.junit.Before
 import org.junit.Test
 import java.time.Duration
 
-/**
- * Regression tests that replay REAL captured provider bodies (see
- * `src/test/resources/adsb/`) through the full provider → translator → toAircraft
- * pipeline. These exist because adsb.fi silently rendered 0 markers in the app:
- * the network was healthy (HTTP 200, hundreds of aircraft) but the client-side
- * pipeline must actually turn that body into [eu.slickbot.airnav.data.adsb.Aircraft].
- */
 class AdsbProviderPipelineTest {
 
   private lateinit var server: MockWebServer

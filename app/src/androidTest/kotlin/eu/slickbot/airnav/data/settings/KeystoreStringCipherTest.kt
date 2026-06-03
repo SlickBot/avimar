@@ -7,10 +7,6 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 
-/**
- * Exercises the real Android Keystore round-trip. Runs on a device or emulator
- * (./gradlew connectedDebugAndroidTest), not in the JVM unit task.
- */
 @RunWith(AndroidJUnit4::class)
 class KeystoreStringCipherTest {
 

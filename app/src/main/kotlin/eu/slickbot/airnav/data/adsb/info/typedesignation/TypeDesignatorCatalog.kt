@@ -13,9 +13,6 @@ data class TypeDesignatorEntry(
   @SerialName("manufacturer_model") val manufacturerModel: String,
 )
 
-/**
- * Loads the bundled ICAO type-designator catalog (~28k entries).
- */
 class TypeDesignatorCatalog(
   private val json: Json,
   private val resourcePath: String = "/type_designators.json",

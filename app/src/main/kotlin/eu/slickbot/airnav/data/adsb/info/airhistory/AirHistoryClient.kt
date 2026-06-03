@@ -4,9 +4,6 @@ import eu.slickbot.airnav.data.common.HttpTextFetcher
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/**
- * airhistory.net HTML scraper. Returns a parsed [AirHistoryRegistrationResponse].
- */
 class AirHistoryClient(
   private val baseUrl: String = "https://www.airhistory.net",
   private val fetcher: HttpTextFetcher,

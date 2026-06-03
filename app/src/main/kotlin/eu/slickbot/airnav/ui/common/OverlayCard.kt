@@ -15,7 +15,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Translucent rounded card used for every floating UI overlay on the map. */
 @Composable
 fun OverlayCard(
   modifier: Modifier = Modifier,
@@ -32,7 +31,6 @@ fun OverlayCard(
   )
 }
 
-/** Circular icon button overlay matching OverlayCard's chrome. */
 @Composable
 fun CircleIconButton(
   icon: ImageVector,

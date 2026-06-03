@@ -7,9 +7,6 @@ import java.nio.charset.StandardCharsets
 import java.time.Clock
 import java.time.Duration
 
-/**
- * doc8643.com HTML scraper client. Rate-limits to 1 request/second.
- */
 class Doc8643Client(
   fetcher: HttpTextFetcher,
   private val parser: Doc8643Parser,

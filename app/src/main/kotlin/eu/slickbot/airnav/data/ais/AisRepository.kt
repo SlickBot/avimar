@@ -12,19 +12,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.time.Duration
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
-/**
- * Owns the AIS WebSocket lifecycle and the merged MMSI-keyed report store.
- * Exposes the store's snapshot as a [List] of UI [Vessel]s via a thin adapter.
- */
 class AisRepository(
   private val client: AisStreamClient = AisStreamClient(),
   private val store: AisReportStore = AisReportStore(
-    entryTtl = Duration.ofMinutes(10),
-    snapshotMinInterval = Duration.ZERO,
+    entryTtl = java.time.Duration.ofMinutes(10),
+    snapshotMinInterval = java.time.Duration.ZERO,
   ),
-  private val pruneIntervalMs: Long = DEFAULT_PRUNE_INTERVAL_MS,
+  private val pruneInterval: Duration = DEFAULT_PRUNE_INTERVAL,
 ) {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -37,7 +34,6 @@ class AisRepository(
   private var collector: Job? = null
   private var pruneJob: Job? = null
 
-  @Suppress("ConvertLongToDuration")
   fun start(apiKey: String, bbox: BoundingBox) {
     if (collector == null) {
       collector = scope.launch {
@@ -46,15 +42,15 @@ class AisRepository(
           val report = AisStreamTranslator.translate(envelope) ?: return@collect
           if (report.latDeg == null || report.lonDeg == null) return@collect
           store.upsert(report)
-          _vessels.value = store.snapshot().reports.toVessels()
+          _vessels.value = snapshotVessels()
         }
       }
     }
     if (pruneJob == null) {
       pruneJob = scope.launch {
         while (true) {
-          delay(pruneIntervalMs)
-          _vessels.value = store.snapshot().reports.toVessels()
+          delay(pruneInterval)
+          _vessels.value = snapshotVessels()
         }
       }
     }
@@ -63,9 +59,8 @@ class AisRepository(
 
   fun stop() {
     client.stop()
-    collector?.cancel()
+    listOf(collector, pruneJob).forEach { it?.cancel() }
     collector = null
-    pruneJob?.cancel()
     pruneJob = null
     store.clear()
     _vessels.value = emptyList()
@@ -75,9 +70,9 @@ class AisRepository(
     return store.health()
   }
 
-  private fun List<AisReport>.toVessels(): List<Vessel> {
+  private fun snapshotVessels(): List<Vessel> {
     val nowMs = System.currentTimeMillis()
-    return mapNotNull { r ->
+    return store.snapshot().reports.mapNotNull { r ->
       val lat = r.latDeg ?: return@mapNotNull null
       val lon = r.lonDeg ?: return@mapNotNull null
       Vessel(
@@ -99,6 +94,6 @@ class AisRepository(
   }
 
   private companion object {
-    const val DEFAULT_PRUNE_INTERVAL_MS = 60_000L
+    val DEFAULT_PRUNE_INTERVAL = 60.seconds
   }
 }

@@ -2,11 +2,6 @@ package eu.slickbot.airnav.data.adsb.readsb
 
 import java.time.Instant
 
-/**
- * Canonical per-aircraft state. Units: **SI** (meters, m/s, degrees, Instant).
- * Imperial conversion to airnav's UI [eu.slickbot.airnav.data.adsb.Aircraft]
- * happens in [ReadSbReport.toAircraft].
- */
 data class ReadSbReport(
   val icao: String,
   val callsign: String?,

@@ -80,21 +80,16 @@ private fun AisIndicator(
   onAddKey: () -> Unit,
 ) {
   val ageSec = health?.translatedAge?.seconds
-  val stale = ageSec != null && ageSec > STALE_TRANSLATED_AGE_SECONDS
   val (color, baseLabel) = when {
     keyMissing -> AirnavAccents.alert to "Add AIS key"
     !enabled -> StatusOffline to "AIS off"
-    state == AisConnectionState.Connected && stale -> StatusConnecting to "AIS stale"
+    state == AisConnectionState.Connected && ageSec != null && ageSec > STALE_TRANSLATED_AGE_SECONDS -> StatusConnecting to "AIS stale"
     state == AisConnectionState.Connected -> StatusConnected to "AIS live"
     state == AisConnectionState.Connecting -> StatusConnecting to "AIS sync"
     else -> StatusOffline to "AIS idle"
   }
   val label = if (state == AisConnectionState.Connected && ageSec != null && !keyMissing) "$baseLabel · ${ageSec}s" else baseLabel
-  val tap = if (keyMissing) {
-    Modifier.clickable(onClickLabel = "Add aisstream.io API key", role = Role.Button, onClick = onAddKey)
-  } else {
-    Modifier
-  }
+  val tap = if (keyMissing) Modifier.clickable(onClickLabel = "Add aisstream.io API key", role = Role.Button, onClick = onAddKey) else Modifier
   Row(modifier = tap, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
     Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
     Text(label, style = MaterialTheme.typography.bodySmall)

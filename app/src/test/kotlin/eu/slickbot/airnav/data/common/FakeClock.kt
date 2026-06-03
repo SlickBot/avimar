@@ -6,7 +6,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-/** Manually-advanced [Clock] used across data/common unit tests. */
 internal class FakeClock(start: Instant) : Clock() {
   private var now: Instant = start
   fun advance(d: Duration) { now = now.plus(d) }

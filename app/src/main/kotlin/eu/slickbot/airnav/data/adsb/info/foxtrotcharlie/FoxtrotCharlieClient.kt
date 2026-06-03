@@ -5,9 +5,6 @@ import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/**
- * Foxtrot Charlie aircraft metadata lookup by Mode S.
- */
 class FoxtrotCharlieClient(
   private val baseUrl: String = "https://flightaware.com",
   private val fetcher: JsonTextFetcher,

@@ -4,10 +4,6 @@ import android.util.Log
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643LookupResponse
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643LookupService
 
-/**
- * Enriches a [ReadSbSnapshot] with ICAO description code, decoded description
- * text, and wake turbulence category derived from the bundled Doc8643 catalog.
- */
 class AdsbReportEnricher internal constructor(
   private val lookupAll: (Set<String>) -> Map<String, Doc8643LookupResponse>,
 ) {

@@ -4,11 +4,6 @@ import eu.slickbot.airnav.data.common.JsonTextFetcher
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-/**
- * airport-data.com photo lookup by ICAO 24-bit hex. Returns several thumbnail
- * URLs per aircraft - the other sources mostly yield a single photo, and
- * airhistory.net is Cloudflare-gated for on-device requests.
- */
 class AirportDataClient(
   private val baseUrl: String = "https://airport-data.com",
   private val jsonFetcher: JsonTextFetcher,
@@ -33,11 +28,6 @@ class AirportDataClient(
       .distinct()
   }
 
-  /**
-   * The API returns small thumbnails (~200px). The full-size image lives at a
-   * predictable URL keyed by the same numeric photo id, so we can upgrade without
-   * scraping the photo page: `.../thumbnails/00X/YYY/<id>.jpg` -> `image.airport-data.com/aircraft/<id>.jpg`.
-   */
   private fun toFullResolution(thumbnailUrl: String): String {
     if (!thumbnailUrl.contains("/thumbnails/")) {
       return thumbnailUrl

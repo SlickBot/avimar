@@ -2,12 +2,6 @@ package eu.slickbot.airnav.ui.map
 
 import eu.slickbot.airnav.data.ais.Vessel
 
-/**
- * Maritime legend + filter taxonomy. Ship-type categories mirror the silhouettes
- * the map actually draws ([VesselIconCategory]) so each legend row shows a real,
- * distinct marker. Navigational-status categories carry the status code, a label,
- * and a swatch color. Pure (no Android types) so it is testable.
- */
 data class VesselCategory(
   val code: String,
   val label: String,
@@ -24,7 +18,6 @@ val VESSEL_CATEGORIES: List<VesselCategory> = listOf(
   VesselCategory("DEFAULT", "Other / unknown", VesselIconCategory.DEFAULT),
 )
 
-/** Filter-category code for a vessel: the [VesselIconCategory] name it renders as. */
 fun vesselFilterCategory(vessel: Vessel): String {
   return vesselIconCategory(vessel).name
 }
@@ -49,7 +42,6 @@ val AIS_STATUS_CATEGORIES: List<AisStatusCategory> = listOf(
   AisStatusCategory("unknown", "Unknown", "#64748b"),
 )
 
-/** Maps a raw AIS navigational status to a [AIS_STATUS_CATEGORIES] code. */
 fun resolveAisStatusFilterKey(navStatus: Int?): String {
   return when (navStatus) {
     null -> "unknown"

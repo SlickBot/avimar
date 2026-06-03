@@ -25,12 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.slickbot.airnav.ui.common.OverlayCard
 
-/**
- * Interactive legend that doubles as the category/status filter. A FAB toggles a
- * panel that opens above it (the caller positions it). Aviation tab: ADS-B
- * categories. Maritime tab: ship types then nav status. Writes the same hidden
- * sets the settings tabs use.
- */
 @Composable
 fun LegendFab(
   expanded: Boolean,
@@ -40,15 +34,8 @@ fun LegendFab(
   FloatingActionButton(
     onClick = onToggle,
     modifier = modifier,
-    // Match the search bar and settings button's flat surface. Zero elevation drops the
-    // tonal overlay that would otherwise tint the surface lighter.
     containerColor = MaterialTheme.colorScheme.surface,
-    elevation = FloatingActionButtonDefaults.elevation(
-      defaultElevation = 0.dp,
-      pressedElevation = 0.dp,
-      focusedElevation = 0.dp,
-      hoveredElevation = 0.dp,
-    ),
+    elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp),
   ) {
     Icon(
       imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.FilterList,
@@ -74,8 +61,9 @@ fun LegendPanel(
   OverlayCard(modifier = modifier.width(230.dp)) {
     Column(modifier = Modifier.padding(bottom = 8.dp)) {
       PrimaryTabRow(selectedTabIndex = tab) {
-        Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Aviation") })
-        Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Maritime") })
+        listOf("Aviation", "Maritime").forEachIndexed { i, label ->
+          Tab(selected = tab == i, onClick = { tab = i }, text = { Text(label) })
+        }
       }
       Column(
         modifier = Modifier

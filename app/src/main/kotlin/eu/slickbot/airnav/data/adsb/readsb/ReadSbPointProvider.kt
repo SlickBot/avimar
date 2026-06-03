@@ -2,10 +2,6 @@ package eu.slickbot.airnav.data.adsb.readsb
 
 import eu.slickbot.airnav.data.adsb.AdsbCircleQuery
 
-/**
- * Generic readsb-format point provider: given a base URL and a path builder,
- * fetches the response and translates it into a canonical [ReadSbSnapshot].
- */
 class ReadSbPointProvider(
   private val baseUrl: String,
   private val tag: String,

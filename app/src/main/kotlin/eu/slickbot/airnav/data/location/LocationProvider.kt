@@ -8,10 +8,6 @@ import android.location.LocationManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 
-/**
- * Reads the last-known location from the platform LocationManager. No active
- * listening — we only need a one-shot fix to seed the map view.
- */
 class LocationProvider(context: Context) {
 
   private val appContext = context.applicationContext

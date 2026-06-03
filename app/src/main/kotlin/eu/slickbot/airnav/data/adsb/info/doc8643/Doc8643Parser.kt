@@ -3,9 +3,6 @@ package eu.slickbot.airnav.data.adsb.info.doc8643
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
-/**
- * Jsoup HTML scraper for doc8643.com /aircraft/{DESIGNATOR} pages.
- */
 class Doc8643Parser {
 
   fun parseDetail(
@@ -16,19 +13,35 @@ class Doc8643Parser {
     val doc = Jsoup.parse(html, baseUrl)
 
     val (designator, classification, category) = parseTopCodesTable(doc, requestedDesignator)
-    val manufacturers = parseManufacturers(doc)
-    val technicalData = parseTechnicalData(doc)
-    val imageUrls = parseImages(doc, baseUrl, designator)
-    val links = parseLinks(doc, baseUrl, designator)
+    val techMap = doc.select("div.tech-data-card .tech-row").mapNotNull { row ->
+      val label = row.selectFirst(".tech-label")?.text()?.trim().orEmpty()
+      val value = row.selectFirst(".tech-value")?.text()?.trim().orEmpty()
+      if (label.isNotBlank() && value.isNotBlank()) label to value else null
+    }.toMap()
 
     return Doc8643AircraftDetail(
       designator = designator,
       classification = classification,
       category = category,
-      manufacturers = manufacturers,
-      tech = parseTech(technicalData),
-      imageUrls = imageUrls,
-      links = links,
+      manufacturers = parseManufacturers(doc),
+      tech = Doc8643TechnicalData(
+        wingSpanM = parseNum(techMap["Wing Span (m)"]),
+        lengthM = parseNum(techMap["Length (m)"]),
+        heightM = parseNum(techMap["Height (m)"]),
+        mtowT = parseNum(techMap["MTOW (t)"]),
+        fuelCapacityL = parseInt(techMap["Fuel Capacity (ltr)"]),
+        maximumRangeNm = parseInt(techMap["Maximum Range (Nm)"]),
+        personsOnBoard = parseInt(techMap["Persons On Board"]),
+        takeOffDistanceM = parseInt(techMap["Take Off Distance (m)"]),
+        landingDistanceM = parseInt(techMap["Landing Distance (m)"]),
+        absoluteCeilingX100Ft = parseInt(techMap["Absolute Ceiling (x100ft)"]),
+        optimumCeilingX100Ft = parseInt(techMap["Optimum Ceiling (x100ft)"]),
+        maximumSpeedKts = parseInt(techMap["Maximum Speed (kts/M)"]),
+        optimumSpeedKts = parseInt(techMap["Optimum Speed (kts/M)"]),
+        maximumClimbRateFtMin = parseInt(techMap["Maximum Climb Rate (ft/min)"]),
+      ),
+      imageUrls = parseImages(doc, baseUrl, designator),
+      links = parseLinks(doc, baseUrl, designator),
       canonicalUrl = doc.selectFirst("link[rel=canonical]")?.absUrl("href")?.ifBlank { null },
       image = doc.selectFirst("meta[property=og:image]")?.attr("content")
         ?.takeIf { it.isNotBlank() }
@@ -43,35 +56,18 @@ class Doc8643Parser {
   private fun parseTopCodesTable(doc: Document, requestedDesignator: String): TopCodes {
     val designator = doc.selectFirst("div.detail-header h1")
       ?.text()?.trim()?.uppercase()
-      ?: extractDesignatorFromOgOrCanonical(doc)
+      ?: run {
+        val ogUrl = doc.selectFirst("meta[property=og:url]")?.attr("content").orEmpty()
+        val canonical = doc.selectFirst("link[rel=canonical]")?.attr("href").orEmpty()
+        extractDesignatorFromAircraftUrl(ogUrl) ?: extractDesignatorFromAircraftUrl(canonical)
+      }
       ?: requestedDesignator.trim().uppercase()
 
     val badges = doc.select("div.detail-header span.badge")
       .map { it.text().trim() }
       .filter { it.isNotBlank() }
 
-    val classification = badges.getOrNull(0)?.ifBlank { null }
-    val category = badges.getOrNull(1)?.ifBlank { null }
-    return TopCodes(designator, classification, category)
-  }
-
-  private fun extractDesignatorFromOgOrCanonical(doc: Document): String? {
-    val ogUrl = doc.selectFirst("meta[property=og:url]")?.attr("content").orEmpty()
-    val canonical = doc.selectFirst("link[rel=canonical]")?.attr("href").orEmpty()
-    return extractDesignatorFromAircraftUrl(ogUrl) ?: extractDesignatorFromAircraftUrl(canonical)
-  }
-
-  private fun parseTechnicalData(doc: Document): Map<String, String> {
-    val map = linkedMapOf<String, String>()
-    val rows = doc.select("div.tech-data-card .tech-row")
-    for (row in rows) {
-      val key = row.selectFirst(".tech-label")?.text()?.trim().orEmpty()
-      val value = row.selectFirst(".tech-value")?.text()?.trim().orEmpty()
-      if (key.isNotBlank() && value.isNotBlank()) {
-        map[key] = value
-      }
-    }
-    return map
+    return TopCodes(designator, badges.getOrNull(0)?.ifBlank { null }, badges.getOrNull(1)?.ifBlank { null })
   }
 
   private fun parseManufacturers(doc: Document): List<String> {
@@ -96,12 +92,10 @@ class Doc8643Parser {
       addAll(fromDataImg)
       addAll(fromImgSrc)
       if (og != null) add(og)
-    }
-      .filter {
-        it.contains("/static/img/aircraft/", ignoreCase = true) ||
-          it.contains(designator, ignoreCase = true)
-      }
-      .distinct()
+    }.filter {
+      it.contains("/static/img/aircraft/", ignoreCase = true) ||
+        it.contains(designator, ignoreCase = true)
+    }.distinct()
   }
 
   private fun parseLinks(doc: Document, baseUrl: String, designator: String): List<Doc8643Link> {
@@ -122,8 +116,7 @@ class Doc8643Parser {
   }
 
   private fun extractDesignatorFromAircraftUrl(url: String): String? {
-    val m = Regex("/aircraft/([A-Za-z0-9_-]+)").find(url) ?: return null
-    return m.groupValues[1].uppercase()
+    return Regex("/aircraft/([A-Za-z0-9_-]+)").find(url)?.groupValues?.get(1)?.uppercase()
   }
 
   private fun resolveUrl(baseUrl: String, url: String): String {
@@ -134,26 +127,7 @@ class Doc8643Parser {
     }
   }
 
-  private fun parseTech(values: Map<String, String>): Doc8643TechnicalData {
-    return Doc8643TechnicalData(
-      wingSpanM = parseDouble(values["Wing Span (m)"]),
-      lengthM = parseDouble(values["Length (m)"]),
-      heightM = parseDouble(values["Height (m)"]),
-      mtowT = parseDouble(values["MTOW (t)"]),
-      fuelCapacityL = parseInt(values["Fuel Capacity (ltr)"]),
-      maximumRangeNm = parseInt(values["Maximum Range (Nm)"]),
-      personsOnBoard = parseInt(values["Persons On Board"]),
-      takeOffDistanceM = parseInt(values["Take Off Distance (m)"]),
-      landingDistanceM = parseInt(values["Landing Distance (m)"]),
-      absoluteCeilingX100Ft = parseInt(values["Absolute Ceiling (x100ft)"]),
-      optimumCeilingX100Ft = parseInt(values["Optimum Ceiling (x100ft)"]),
-      maximumSpeedKts = parseInt(values["Maximum Speed (kts/M)"]),
-      optimumSpeedKts = parseInt(values["Optimum Speed (kts/M)"]),
-      maximumClimbRateFtMin = parseInt(values["Maximum Climb Rate (ft/min)"]),
-    )
-  }
-
-  private fun parseDouble(raw: String?): Double? {
+  private fun parseNum(raw: String?): Double? {
     if (raw.isNullOrBlank()) return null
     return raw.trim().replace(",", "").toDoubleOrNull()
   }

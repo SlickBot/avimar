@@ -8,18 +8,6 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import java.io.File
 
-/**
- * Live smoke test: subscribes to the real AisStream WebSocket using the API key
- * stored in `.key` at the repo root, and asserts that real envelopes arrive and
- * translate into non-null vessel reports.
- *
- * Skipped unless `AIS_SMOKE=1` (or system prop `airnav.ais.smoke=1`) is set, so
- * regular `./gradlew test` never hits the network.
- *
- * To run:
- *   AIS_SMOKE=1 ./gradlew :app:testDebugUnitTest --tests \
- *     'eu.slickbot.airnav.data.ais.AisStreamLiveSmokeTest'
- */
 class AisStreamLiveSmokeTest {
 
   @Test

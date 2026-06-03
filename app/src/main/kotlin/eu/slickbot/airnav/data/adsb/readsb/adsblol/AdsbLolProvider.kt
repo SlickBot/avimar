@@ -11,9 +11,6 @@ import kotlinx.serialization.json.Json
 import java.time.Clock
 import java.time.Duration
 
-/**
- * adsb.lol point provider.
- */
 class AdsbLolProvider(
   fetcher: JsonTextFetcher,
   json: Json,

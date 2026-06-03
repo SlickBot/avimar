@@ -4,12 +4,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-/**
- * Thread-safe cache with bounded size (LRU eviction) and per-entry TTL.
- *
- * Not a high-throughput cache — uses a single synchronized LinkedHashMap. Suitable
- * for provider-lookup caches where contention is low.
- */
 class BoundedTtlCache<K : Any, V : Any>(
   private val maxSize: Int,
   private val ttl: Duration,

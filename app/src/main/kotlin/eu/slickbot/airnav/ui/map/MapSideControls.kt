@@ -17,10 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.slickbot.airnav.ui.common.OverlayCard
 
-/**
- * Vertical pill on the map's right edge holding zoom + locate controls so they
- * share one tap target, matching the convention of mainstream map apps.
- */
 @Composable
 fun MapSideControls(
   onZoomIn: () -> Unit,

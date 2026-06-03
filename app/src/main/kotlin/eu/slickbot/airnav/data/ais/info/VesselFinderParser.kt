@@ -3,12 +3,6 @@ package eu.slickbot.airnav.data.ais.info
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
-/**
- * Best-effort scraper for VesselFinder vessel detail pages
- * (https://www.vesselfinder.com/vessels/details/{IMO_OR_MMSI}).
- *
- * VesselFinder may block automated access — callers must handle failure.
- */
 class VesselFinderParser {
 
   fun parse(html: String, sourceUrl: String): VesselDetails {
@@ -33,7 +27,6 @@ class VesselFinderParser {
         field(fields, "Current Draught", "Draught", "Draft"),
       ),
       photoUrl = extractPhoto(doc),
-      sourceUrl = sourceUrl,
     )
   }
 

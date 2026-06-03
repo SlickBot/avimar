@@ -1,6 +1,7 @@
 package eu.slickbot.airnav.data.settings
 
 import android.content.Context
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -13,6 +14,9 @@ import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.ui.map.TileStyle
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 private val Context.dataStore by preferencesDataStore(name = "airnav_settings")
 
@@ -20,124 +24,48 @@ class SettingsRepository(private val context: Context) {
 
   private val store get() = context.applicationContext.dataStore
 
-  val adsbProvider: Flow<AdsbProvider> = store.data.map { prefs ->
-    AdsbProvider.fromId(prefs[KEY_ADSB_PROVIDER])
+  private fun <T> read(key: Preferences.Key<T>, default: T): Flow<T> {
+    return store.data.map { it[key] ?: default }
   }
 
-  val tileStyle: Flow<TileStyle> = store.data.map { prefs ->
-    TileStyle.fromId(prefs[KEY_TILE_STYLE])
+  private suspend fun <T> write(key: Preferences.Key<T>, value: T) {
+    store.edit { it[key] = value }
   }
 
-  val aisEnabled: Flow<Boolean> = store.data.map { prefs ->
-    prefs[KEY_AIS_ENABLED] ?: true
-  }
+  val adsbProvider: Flow<AdsbProvider> = store.data.map { AdsbProvider.fromId(it[KEY_ADSB_PROVIDER]) }
+  val tileStyle: Flow<TileStyle> = store.data.map { TileStyle.fromId(it[KEY_TILE_STYLE]) }
+  val aisEnabled: Flow<Boolean> = read(KEY_AIS_ENABLED, true)
+  val trailsEnabled: Flow<Boolean> = read(KEY_TRAILS_ENABLED, true)
+  val aviationVisible: Flow<Boolean> = read(KEY_AVIATION_VISIBLE, true)
+  val maritimeVisible: Flow<Boolean> = read(KEY_MARITIME_VISIBLE, true)
+  val adsbPollInterval: Flow<Duration> = read(KEY_ADSB_POLL_MS, 0L).map { it.milliseconds }
+  val requestTimeout: Flow<Duration> = read(KEY_ADSB_TIMEOUT_SEC, 15).map { it.seconds }
+  val markerScale: Flow<Float> = read(KEY_MARKER_SCALE, 1.0f)
+  val minAltitudeM: Flow<Int?> = store.data.map { it[KEY_MIN_ALT_M]?.takeIf { v -> v >= 0 } }
+  val maxAltitudeM: Flow<Int?> = store.data.map { it[KEY_MAX_ALT_M]?.takeIf { v -> v >= 0 } }
+  val hideGrounded: Flow<Boolean> = read(KEY_HIDE_GROUNDED, false)
+  val hiddenAircraftCategories: Flow<Set<String>> = read(KEY_HIDDEN_CATEGORIES, emptySet())
+  val hiddenVesselCategories: Flow<Set<String>> = read(KEY_HIDDEN_VESSEL_CATEGORIES, emptySet())
+  val hiddenVesselStatuses: Flow<Set<String>> = read(KEY_HIDDEN_VESSEL_STATUSES, emptySet())
 
-  val trailsEnabled: Flow<Boolean> = store.data.map { prefs ->
-    prefs[KEY_TRAILS_ENABLED] ?: true
-  }
+  suspend fun setAdsbProvider(provider: AdsbProvider) { write(KEY_ADSB_PROVIDER, provider.id) }
+  suspend fun setTileStyle(style: TileStyle) { write(KEY_TILE_STYLE, style.id) }
+  suspend fun setAisEnabled(enabled: Boolean) { write(KEY_AIS_ENABLED, enabled) }
+  suspend fun setTrailsEnabled(enabled: Boolean) { write(KEY_TRAILS_ENABLED, enabled) }
+  suspend fun setAviationVisible(visible: Boolean) { write(KEY_AVIATION_VISIBLE, visible) }
+  suspend fun setMaritimeVisible(visible: Boolean) { write(KEY_MARITIME_VISIBLE, visible) }
 
-  val aviationVisible: Flow<Boolean> = store.data.map { prefs ->
-    prefs[KEY_AVIATION_VISIBLE] ?: true
-  }
+  suspend fun setAdsbPollInterval(interval: Duration) { write(KEY_ADSB_POLL_MS, interval.inWholeMilliseconds.coerceAtLeast(0L)) }
+  suspend fun setRequestTimeout(timeout: Duration) { write(KEY_ADSB_TIMEOUT_SEC, timeout.inWholeSeconds.toInt().coerceIn(1, 120)) }
+  suspend fun setMarkerScale(scale: Float) { write(KEY_MARKER_SCALE, scale.coerceIn(0.5f, 2.0f)) }
 
-  val maritimeVisible: Flow<Boolean> = store.data.map { prefs ->
-    prefs[KEY_MARITIME_VISIBLE] ?: true
-  }
+  suspend fun setMinAltitudeM(meters: Int?) { write(KEY_MIN_ALT_M, meters ?: -1) }
+  suspend fun setMaxAltitudeM(meters: Int?) { write(KEY_MAX_ALT_M, meters ?: -1) }
 
-  /** Poll interval override in ms; 0 = use the provider's default. */
-  val adsbPollMs: Flow<Long> = store.data.map { prefs -> prefs[KEY_ADSB_POLL_MS] ?: 0L }
-
-  /** Per-request timeout in seconds. */
-  val adsbTimeoutSec: Flow<Int> = store.data.map { prefs -> prefs[KEY_ADSB_TIMEOUT_SEC] ?: 15 }
-
-  val markerScale: Flow<Float> = store.data.map { prefs -> prefs[KEY_MARKER_SCALE] ?: 1.0f }
-
-  /** Altitude floor in meters, or null for no floor (stored as -1). */
-  val minAltitudeM: Flow<Int?> = store.data.map { prefs ->
-    prefs[KEY_MIN_ALT_M]?.takeIf { it >= 0 }
-  }
-
-  /** Altitude ceiling in meters, or null for no ceiling (stored as -1). */
-  val maxAltitudeM: Flow<Int?> = store.data.map { prefs ->
-    prefs[KEY_MAX_ALT_M]?.takeIf { it >= 0 }
-  }
-
-  val hideGrounded: Flow<Boolean> = store.data.map { prefs -> prefs[KEY_HIDE_GROUNDED] ?: false }
-
-  /** Hidden aircraft categories, by ADS-B emitter category code (e.g. "A7"). */
-  val hiddenAircraftCategories: Flow<Set<String>> = store.data.map { prefs ->
-    prefs[KEY_HIDDEN_CATEGORIES] ?: emptySet()
-  }
-
-  /** Hidden vessel ship-type categories, by [VesselCategory.code] (e.g. "CARGO"). */
-  val hiddenVesselCategories: Flow<Set<String>> = store.data.map { prefs ->
-    prefs[KEY_HIDDEN_VESSEL_CATEGORIES] ?: emptySet()
-  }
-
-  /** Hidden vessel navigational statuses, by [AisStatusCategory.code] (e.g. "5"). */
-  val hiddenVesselStatuses: Flow<Set<String>> = store.data.map { prefs ->
-    prefs[KEY_HIDDEN_VESSEL_STATUSES] ?: emptySet()
-  }
-
-  suspend fun setAdsbProvider(provider: AdsbProvider) {
-    store.edit { it[KEY_ADSB_PROVIDER] = provider.id }
-  }
-
-  suspend fun setTileStyle(style: TileStyle) {
-    store.edit { it[KEY_TILE_STYLE] = style.id }
-  }
-
-  suspend fun setAisEnabled(enabled: Boolean) {
-    store.edit { it[KEY_AIS_ENABLED] = enabled }
-  }
-
-  suspend fun setTrailsEnabled(enabled: Boolean) {
-    store.edit { it[KEY_TRAILS_ENABLED] = enabled }
-  }
-
-  suspend fun setAviationVisible(visible: Boolean) {
-    store.edit { it[KEY_AVIATION_VISIBLE] = visible }
-  }
-
-  suspend fun setMaritimeVisible(visible: Boolean) {
-    store.edit { it[KEY_MARITIME_VISIBLE] = visible }
-  }
-
-  suspend fun setAdsbPollMs(ms: Long) {
-    store.edit { it[KEY_ADSB_POLL_MS] = ms.coerceAtLeast(0L) }
-  }
-
-  suspend fun setAdsbTimeoutSec(seconds: Int) {
-    store.edit { it[KEY_ADSB_TIMEOUT_SEC] = seconds.coerceIn(1, 120) }
-  }
-
-  suspend fun setMarkerScale(scale: Float) {
-    store.edit { it[KEY_MARKER_SCALE] = scale.coerceIn(0.5f, 2.0f) }
-  }
-
-  suspend fun setMinAltitudeM(meters: Int?) {
-    store.edit { it[KEY_MIN_ALT_M] = meters ?: -1 }
-  }
-
-  suspend fun setMaxAltitudeM(meters: Int?) {
-    store.edit { it[KEY_MAX_ALT_M] = meters ?: -1 }
-  }
-
-  suspend fun setHideGrounded(hide: Boolean) {
-    store.edit { it[KEY_HIDE_GROUNDED] = hide }
-  }
-
-  suspend fun setHiddenAircraftCategories(categories: Set<String>) {
-    store.edit { it[KEY_HIDDEN_CATEGORIES] = categories }
-  }
-
-  suspend fun setHiddenVesselCategories(categories: Set<String>) {
-    store.edit { it[KEY_HIDDEN_VESSEL_CATEGORIES] = categories }
-  }
-
-  suspend fun setHiddenVesselStatuses(statuses: Set<String>) {
-    store.edit { it[KEY_HIDDEN_VESSEL_STATUSES] = statuses }
-  }
+  suspend fun setHideGrounded(hide: Boolean) { write(KEY_HIDE_GROUNDED, hide) }
+  suspend fun setHiddenAircraftCategories(categories: Set<String>) { write(KEY_HIDDEN_CATEGORIES, categories) }
+  suspend fun setHiddenVesselCategories(categories: Set<String>) { write(KEY_HIDDEN_VESSEL_CATEGORIES, categories) }
+  suspend fun setHiddenVesselStatuses(statuses: Set<String>) { write(KEY_HIDDEN_VESSEL_STATUSES, statuses) }
 
   private companion object {
     val KEY_ADSB_PROVIDER = stringPreferencesKey("adsb_provider")

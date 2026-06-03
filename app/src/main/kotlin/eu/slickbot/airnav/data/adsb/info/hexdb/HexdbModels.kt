@@ -1,11 +1,9 @@
 package eu.slickbot.airnav.data.adsb.info.hexdb
 
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNames
 
-@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class HexdbAircraftResponse(
   @SerialName("ICAOTypeCode") val icaoTypeCode: String? = null,

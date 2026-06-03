@@ -12,21 +12,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/**
- * Verifies SecureKeyStore's storage logic with an injected fake cipher, so the
- * round-trip and at-rest behaviour are testable on the JVM (the real Keystore
- * cipher can only run on a device — see SecureKeyStoreInstrumentedTest).
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33], application = Application::class)
 class SecureKeyStoreTest {
 
-  // Visibly transforms the value so a plaintext leak at rest is detectable.
   private val fakeCipher = object : StringCipher {
     override fun encrypt(plain: String): String {
       return "enc:$plain"
     }
-
     override fun decrypt(stored: String): String? {
       return if (stored.startsWith("enc:")) stored.removePrefix("enc:") else null
     }

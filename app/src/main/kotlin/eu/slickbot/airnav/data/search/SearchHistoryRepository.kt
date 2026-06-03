@@ -10,7 +10,6 @@ import kotlinx.serialization.json.Json
 
 private val Context.searchDataStore by preferencesDataStore(name = "airnav_search")
 
-/** Persists the recently viewed flights/ships, most-recent-first, deduped by [RecentEntity.kind] + id. */
 class SearchHistoryRepository(
   private val context: Context,
   private val json: Json,

@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +18,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -146,7 +146,7 @@ private fun PlaneBody(
       }
     }
     if (it.infoLinks.isNotEmpty()) {
-      Section("Links") { TrackingLinks(it.infoLinks) }
+      Section("Links") { TrackingLinks(it.infoLinks.map { l -> l.asLabeled() }) }
     }
   }
 }
@@ -168,7 +168,7 @@ private fun ShipBody(
       Section("Vessel") { ShipEnrichmentRows(d) }
     }
     if (d.infoLinks.isNotEmpty()) {
-      Section("Links") { TrackingLinks(d.infoLinks) }
+      Section("Links") { TrackingLinks(d.infoLinks.map { it.asLabeled() }) }
     }
   }
 }
@@ -248,7 +248,6 @@ private fun PhotoGallery(
   val shown = photos.filter { it !in failed }
   if (shown.isEmpty()) return
 
-  // Show every photo in a horizontal strip, ~2 at a time (a single one fills the row).
   val widthFraction = if (shown.size == 1) 1f else 0.48f
   LazyRow(
     modifier = Modifier.fillMaxWidth().height(96.dp),
@@ -308,7 +307,6 @@ private fun SpecRows(specs: AircraftSpecs) {
   specs.maxClimbRateFtMin?.let { DetailRow("Climb rate", "${(it * 0.3048).roundToInt()} m/min") }
 }
 
-/** Origin → destination shown directly under the header (webclient style). */
 @Composable
 private fun RouteRow(route: AircraftFlightRoute) {
   if (route.origin == null && route.destination == null) return
@@ -350,19 +348,7 @@ private fun AirportEnd(airport: AircraftFlightAirport?, alignEnd: Boolean, modif
 }
 
 @Composable
-@JvmName("TrackingLinksAircraft")
-private fun TrackingLinks(links: List<AircraftInfoLink>) {
-  TrackingLinksImpl(links.map { it.asLabeled() })
-}
-
-@Composable
-@JvmName("TrackingLinksVessel")
-private fun TrackingLinks(links: List<VesselInfoLink>) {
-  TrackingLinksImpl(links.map { it.asLabeled() })
-}
-
-@Composable
-private fun TrackingLinksImpl(links: List<LabeledLink>) {
+private fun TrackingLinks(links: List<LabeledLink>) {
   val context = LocalContext.current
   FlowRow(
     modifier = Modifier.fillMaxWidth(),
@@ -400,26 +386,21 @@ private fun TrackingLinksImpl(links: List<LabeledLink>) {
   }
 }
 
+private val brandDrawables = listOf(
+  listOf("ADS-B Exchange", "adsbexchange") to R.drawable.link_adsbexchange,
+  listOf("Flightradar", "fr24")            to R.drawable.link_flightradar24,
+  listOf("AirHistory", "air history")      to R.drawable.link_airhistory,
+  listOf("PlaneSpotters", "planespotter")  to R.drawable.link_planespotters,
+  listOf("MarineTraffic")                  to R.drawable.link_marinetraffic,
+  listOf("VesselFinder")                   to R.drawable.link_vesselfinder,
+  listOf("MyShipTracking")                 to R.drawable.link_myshiptracking,
+  listOf("ShipSpotting")                   to R.drawable.link_shipspotting,
+)
+
 private fun brandDrawable(label: String): Int? {
-  return when {
-    label.contains("ADS-B Exchange", ignoreCase = true) || label.contains("adsbexchange", ignoreCase = true) ->
-      R.drawable.link_adsbexchange
-    label.contains("Flightradar", ignoreCase = true) || label.contains("fr24", ignoreCase = true) ->
-      R.drawable.link_flightradar24
-    label.contains("AirHistory", ignoreCase = true) || label.contains("air history", ignoreCase = true) ->
-      R.drawable.link_airhistory
-    label.contains("PlaneSpotters", ignoreCase = true) || label.contains("planespotter", ignoreCase = true) ->
-      R.drawable.link_planespotters
-    label.contains("MarineTraffic", ignoreCase = true) ->
-      R.drawable.link_marinetraffic
-    label.contains("VesselFinder", ignoreCase = true) ->
-      R.drawable.link_vesselfinder
-    label.contains("MyShipTracking", ignoreCase = true) ->
-      R.drawable.link_myshiptracking
-    label.contains("ShipSpotting", ignoreCase = true) ->
-      R.drawable.link_shipspotting
-    else -> null
-  }
+  return brandDrawables.firstOrNull { (keys, _) ->
+    keys.any { label.contains(it, ignoreCase = true) }
+  }?.second
 }
 
 @Composable

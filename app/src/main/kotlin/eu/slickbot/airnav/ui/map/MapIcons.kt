@@ -11,15 +11,6 @@ import androidx.core.graphics.toColorInt
 import org.maplibre.android.maps.Style
 import kotlin.math.max
 
-/**
- * Generates per-category COLORED icon bitmaps and registers them (one image per
- * ADS-B category / vessel category, keyed by [AdsbCategory.code] /
- * [VesselIconCategory.image]). Color is baked into the bitmap — registered
- * non-SDF — because SDF + data-driven `icon-color` renders solid silhouettes
- * washed-out. Aircraft use the tar1090 silhouette paths ported from
- * drone-swarm-v9 (`shapes.ts`); vessels use simple polygons. Bitmaps are drawn
- * nose/bow-up so `icon-rotate` from track/heading works directly.
- */
 object MapIcons {
 
   private const val SIZE = 64
@@ -70,7 +61,6 @@ object MapIcons {
     val (pathData, vb) = SHAPES[name] ?: SHAPES.getValue("unknown")
     val bmp = createBitmap(SIZE, SIZE)
     val canvas = Canvas(bmp)
-    // PathParser throws on malformed path data; never let that crash style load.
     val path = runCatching { PathParser.createPathFromPathData(pathData) }.getOrNull()
     if (path == null) {
       canvas.drawCircle(SIZE / 2f, SIZE / 2f, SIZE / 2f - PAD, fillPaint(colorHex))
@@ -127,11 +117,6 @@ object MapIcons {
     VesselIconCategory.DEFAULT to (genericShip to "#80cbc4"),
   )
 
-  /**
-   * Registers one colored image per ADS-B category (keyed by [AdsbCategory.code])
-   * and per vessel category (keyed by [VesselIconCategory.image]). Non-SDF — the
-   * category color is baked in, so the SymbolLayer needs no `icon-color`.
-   */
   fun register(style: Style) {
     ADSB_CATEGORIES.forEach { category ->
       style.addImage(category.code, shapeBitmap(category.iconName, category.color), false)
@@ -142,12 +127,10 @@ object MapIcons {
     }
   }
 
-  /** Colored silhouette bitmap for an ADS-B category, for Compose legend rows. */
   fun categoryBitmap(category: AdsbCategory): Bitmap {
     return shapeBitmap(category.iconName, category.color)
   }
 
-  /** Colored silhouette bitmap for a vessel icon category, for Compose legend rows. */
   fun vesselBitmap(category: VesselIconCategory): Bitmap {
     val (points, colorHex) = vesselShapes.getValue(category)
     return polygonBitmap(points, colorHex)

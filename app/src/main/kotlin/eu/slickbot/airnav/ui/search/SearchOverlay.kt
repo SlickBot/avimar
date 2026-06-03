@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DirectionsBoat
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -26,18 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.slickbot.airnav.data.search.RecentEntity
 import eu.slickbot.airnav.ui.theme.AirnavAccents
 
-/**
- * Full-screen-expanding search over the map. Collapsed: a pill with a search icon
- * leading. Expanded: covers the screen, leading icon becomes a back arrow, and the
- * body shows recent entities (empty query) or live [hits].
- */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AirnavSearchBar(
   query: String,
@@ -52,12 +44,11 @@ fun AirnavSearchBar(
   modifier: Modifier = Modifier,
 ) {
   val horizontalPadding by animateDpAsState(if (expanded) 0.dp else 12.dp, label = "searchHPad")
-  val verticalPadding by animateDpAsState(if (expanded) 0.dp else 0.dp, label = "searchVPad")
 
   SearchBar(
     modifier = modifier
       .fillMaxWidth()
-      .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+      .padding(horizontal = horizontalPadding),
     inputField = {
       SearchBarDefaults.InputField(
         query = query,
@@ -130,43 +121,51 @@ private fun HitRow(hit: SearchHit, onTap: (SearchHit) -> Unit) {
     is SearchHit.Plane -> RecentEntity.Kind.PLANE
     is SearchHit.Ship -> RecentEntity.Kind.SHIP
   }
-  val (icon, tint) = iconAndTint(kind)
-  ListItem(
-    headlineContent = { Text(hit.title, fontWeight = FontWeight.SemiBold) },
-    supportingContent = hit.subtitle?.let { sub -> { Text(sub) } },
-    leadingContent = { Icon(icon, contentDescription = null, tint = tint) },
-    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    modifier = Modifier.clickable { onTap(hit) },
+  EntityRow(
+    title = hit.title,
+    subtitle = hit.subtitle,
+    kind = kind,
+    onClick = { onTap(hit) },
+    headlineFontWeight = FontWeight.SemiBold,
   )
 }
 
 @Composable
-private fun RecentRow(
-  entity: RecentEntity,
-  onTap: (RecentEntity) -> Unit,
-  onRemove: (RecentEntity) -> Unit,
-) {
-  val (icon, tint) = iconAndTint(entity.kind)
-  ListItem(
-    headlineContent = { Text(entity.title) },
-    supportingContent = entity.subtitle?.let { sub -> { Text(sub) } },
-    leadingContent = { Icon(icon, contentDescription = null, tint = tint) },
+private fun RecentRow(entity: RecentEntity, onTap: (RecentEntity) -> Unit, onRemove: (RecentEntity) -> Unit) {
+  EntityRow(
+    title = entity.title,
+    subtitle = entity.subtitle,
+    kind = entity.kind,
+    onClick = { onTap(entity) },
     trailingContent = {
       IconButton(onClick = { onRemove(entity) }) {
         Icon(Icons.Filled.Close, contentDescription = "Remove recent")
       }
     },
-    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-    modifier = Modifier.clickable { onTap(entity) },
   )
 }
 
 @Composable
-private fun iconAndTint(kind: RecentEntity.Kind): Pair<ImageVector, Color> {
-  return when (kind) {
+private fun EntityRow(
+  title: String,
+  subtitle: String?,
+  kind: RecentEntity.Kind,
+  onClick: () -> Unit,
+  headlineFontWeight: FontWeight? = null,
+  trailingContent: (@Composable () -> Unit)? = null,
+) {
+  val (icon, tint) = when (kind) {
     RecentEntity.Kind.PLANE -> Icons.Filled.Flight to AirnavAccents.plane
     RecentEntity.Kind.SHIP -> Icons.Filled.DirectionsBoat to AirnavAccents.ship
   }
+  ListItem(
+    headlineContent = { Text(title, fontWeight = headlineFontWeight) },
+    supportingContent = subtitle?.let { sub -> { Text(sub) } },
+    leadingContent = { Icon(icon, contentDescription = null, tint = tint) },
+    trailingContent = trailingContent,
+    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    modifier = Modifier.clickable { onClick() },
+  )
 }
 
 private fun hitKey(hit: SearchHit): String = when (hit) {

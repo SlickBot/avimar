@@ -11,9 +11,6 @@ import kotlinx.serialization.json.Json
 import java.time.Clock
 import java.time.Duration
 
-/**
- * airplanes.live point provider.
- */
 class AirplanesLiveProvider(
   fetcher: JsonTextFetcher,
   json: Json,

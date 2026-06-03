@@ -28,12 +28,6 @@ import org.maplibre.android.maps.MapView
 import org.maplibre.geojson.Point
 import kotlin.math.hypot
 
-/**
- * Native MapLibre map, the replacement for the crashing Leaflet/WebView map.
- * Mirrors the old `LeafletWebView` Composable surface: it reports viewport and
- * marker taps back out, and hands a [MapController] to [onReady] for state→map
- * pushes. The MapView's Android lifecycle is forwarded from the host lifecycle.
- */
 @Composable
 fun MapLibreMapView(
   modifier: Modifier = Modifier,
@@ -48,8 +42,6 @@ fun MapLibreMapView(
   val lifecycleOwner = LocalLifecycleOwner.current
   var mapLibreMap by remember { mutableStateOf<MapLibreMap?>(null) }
 
-  // Inset the map's own decorations (compass / logo / attribution) so they clear
-  // the system bars now that the map is drawn edge-to-edge.
   val density = LocalDensity.current
   val topInset = WindowInsets.statusBars.getTop(density)
   val bottomInset = WindowInsets.navigationBars.getBottom(density)
@@ -84,7 +76,6 @@ fun MapLibreMapView(
 
   LaunchedEffect(mapView) {
     mapView.getMapAsync { map ->
-      // Remove the MapLibre logo + attribution "ⓘ" watermark for a clean map.
       map.uiSettings.isLogoEnabled = false
       map.uiSettings.isAttributionEnabled = false
       mapLibreMap = map
@@ -99,8 +90,6 @@ fun MapLibreMapView(
         handleClick(map, latLng, onAircraftClick, onVesselClick)
       }
       map.addOnCameraMoveStartedListener { reason ->
-        // Only a user gesture should disengage follow; our own animateCamera
-        // re-centers report a non-gesture reason and are ignored.
         if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
           onUserGesture()
         }
@@ -116,8 +105,7 @@ private fun emitViewport(map: MapLibreMap, onViewportChanged: (Viewport) -> Unit
   val camera = map.cameraPosition
   val target = camera.target ?: return
   val bounds = map.projection.visibleRegion.latLngBounds
-  val northEast = LatLng(bounds.latitudeNorth, bounds.longitudeEast)
-  val radiusNm = minOf(250.0, target.distanceTo(northEast) / 1852.0)
+  val radiusNm = minOf(250.0, target.distanceTo(LatLng(bounds.latitudeNorth, bounds.longitudeEast)) / 1852.0)
   onViewportChanged(
     Viewport(
       centerLat = target.latitude,
@@ -141,12 +129,7 @@ private fun handleClick(
   onVesselClick: (Long) -> Unit,
 ): Boolean {
   val screen = map.projection.toScreenLocation(latLng)
-  val rect = RectF(
-    screen.x - TAP_RADIUS_PX,
-    screen.y - TAP_RADIUS_PX,
-    screen.x + TAP_RADIUS_PX,
-    screen.y + TAP_RADIUS_PX,
-  )
+  val rect = RectF(screen.x - TAP_RADIUS_PX, screen.y - TAP_RADIUS_PX, screen.x + TAP_RADIUS_PX, screen.y + TAP_RADIUS_PX)
 
   val plane = nearestFeatureId(map, screen, rect, MapController.AIRCRAFT_LAYER)
   if (plane != null) {
@@ -162,12 +145,6 @@ private fun handleClick(
   return false
 }
 
-/**
- * Picks the feature whose marker point is closest to the tap, within [TAP_RADIUS_PX].
- * A plain layer hit-test matches the whole symbol (icon + the label rendered below it),
- * which biases selection downward; measuring to the point centers the hit on the icon
- * and resolves which marker wins when several are nearby.
- */
 private fun nearestFeatureId(
   map: MapLibreMap,
   tap: PointF,

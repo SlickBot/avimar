@@ -5,11 +5,6 @@ import eu.slickbot.airnav.data.ais.Vessel
 import kotlinx.serialization.Serializable
 import kotlin.math.roundToInt
 
-/**
- * Snapshot of a flight/ship the user opened, kept for the search "Recent" list.
- * Stores its own title/subtitle/position so it still renders after the live
- * entity leaves coverage. Title/subtitle derivation mirrors [eu.slickbot.airnav.ui.search.SearchHit].
- */
 @Serializable
 data class RecentEntity(
   val kind: Kind,

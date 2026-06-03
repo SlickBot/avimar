@@ -3,12 +3,6 @@ package eu.slickbot.airnav.ui.map
 import eu.slickbot.airnav.data.adsb.Aircraft
 import eu.slickbot.airnav.data.ais.Vessel
 
-/**
- * ADS-B marker categorisation, matching drone-swarm-v9's `categories.ts`:
- * aircraft are keyed by their ADS-B emitter category code (A1…C5) to a tar1090
- * silhouette ([iconName], drawn by [MapIcons]) and a band [color]. Pure (no
- * Android types) so it is unit-testable.
- */
 data class AdsbCategory(
   val code: String,
   val label: String,
@@ -49,8 +43,7 @@ fun adsbCategoryByCode(code: String): AdsbCategory {
 }
 
 fun adsbCategoryFor(aircraft: Aircraft): AdsbCategory {
-  val code = aircraft.category?.trim()?.uppercase()
-  return categoriesByCode[code] ?: OTHER_CATEGORY
+  return adsbCategoryByCode(aircraft.category?.trim()?.uppercase() ?: "")
 }
 
 fun aircraftLabel(aircraft: Aircraft): String {
@@ -58,8 +51,6 @@ fun aircraftLabel(aircraft: Aircraft): String {
     ?: aircraft.registration?.takeIf { it.isNotBlank() }
     ?: aircraft.hex.uppercase()
 }
-
-// ---------- Vessels (unchanged; icons drawn by MapIcons) ----------
 
 enum class VesselIconCategory(val image: String) {
   CARGO("ship-cargo"),
@@ -72,8 +63,8 @@ enum class VesselIconCategory(val image: String) {
 }
 
 fun vesselIconCategory(vessel: Vessel): VesselIconCategory {
-  val type = vessel.shipType ?: return VesselIconCategory.DEFAULT
-  return when (type) {
+  return when (vessel.shipType) {
+    null -> VesselIconCategory.DEFAULT
     in 60..69 -> VesselIconCategory.PASSENGER
     in 70..79 -> VesselIconCategory.CARGO
     in 80..89 -> VesselIconCategory.TANKER
@@ -84,7 +75,6 @@ fun vesselIconCategory(vessel: Vessel): VesselIconCategory {
   }
 }
 
-/** Ship-type-band color, ported from airnav.js `vesselColor`. */
 fun vesselColor(shipType: Int?): String {
   return when (shipType) {
     null -> "#80cbc4"

@@ -2,6 +2,7 @@ package eu.slickbot.airnav.data.adsb
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import kotlin.time.Duration
 
 class AdsbProviderTest {
 
@@ -22,7 +23,7 @@ class AdsbProviderTest {
   @Test
   fun `each provider has a positive poll interval and a 250 nm cap`() {
     AdsbProvider.entries.forEach { p ->
-      assert(p.minPollIntervalMs > 0) { "${p.id} has non-positive poll interval" }
+      assert(p.minPollInterval > Duration.ZERO) { "${p.id} has non-positive poll interval" }
       assertEquals(250, p.maxRadiusNm)
     }
   }

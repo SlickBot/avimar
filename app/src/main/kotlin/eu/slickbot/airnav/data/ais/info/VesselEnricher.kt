@@ -11,12 +11,6 @@ import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
-/**
- * Looks up vessel details by MMSI (optionally IMO). Fetches MyShipTracking
- * and VesselFinder concurrently; VesselFinder is queried by IMO when one is
- * supplied (more accurate than its MMSI page). Merges with MST > VF priority,
- * sanitizes placeholder photos, and appends the 4-site tracking-link block.
- */
 class VesselEnricher(
   private val client: OkHttpClient = defaultClient(),
   private val vesselFinderParser: VesselFinderParser = VesselFinderParser(),
@@ -25,9 +19,7 @@ class VesselEnricher(
 
   companion object {
     private const val TAG = "VesselEnricher"
-    private const val USER_AGENT =
-      "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
-          "Chrome/124.0 Mobile Safari/537.36"
+    private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
 
     fun defaultClient(): OkHttpClient {
       return OkHttpClient.Builder()
@@ -43,40 +35,28 @@ class VesselEnricher(
 
   suspend fun lookup(mmsi: Long, imo: Long? = null): VesselDetails? {
     cache[mmsi]?.let { return it.value }
-    val merged = runCatching { fetchAll(mmsi, imo) }
-      .onFailure { Log.w(TAG, "vessel lookup failed for $mmsi: ${it.message}") }
-      .getOrNull()
-    val finalized = merged?.let { finalize(it, mmsi) }
+    val mstUrl = "https://www.myshiptracking.com/vessels/$mmsi"
+    val vfUrl  = "https://www.vesselfinder.com/vessels/details/${imo ?: mmsi}"
+    val merged = runCatching {
+      coroutineScope {
+        val mst = async { fetchAndParse(mstUrl) { myShipTrackingParser.parse(it, mstUrl) } }
+        val vf  = async { fetchAndParse(vfUrl)  { vesselFinderParser.parse(it, vfUrl) } }
+        merge(mst.await(), vf.await())
+      }
+    }.onFailure { Log.w(TAG, "vessel lookup failed for $mmsi: ${it.message}") }.getOrNull()
+    val finalized = merged?.let { details ->
+      details.copy(
+        photoUrls = sanitizeVesselPhotoUrls(details.photoUrls),
+        infoLinks = (details.infoLinks + vesselTrackingLinks(mmsi)).distinctBy { it.url },
+      )
+    }
     cache[mmsi] = Optional(finalized)
     return finalized
   }
 
-  private suspend fun fetchAll(mmsi: Long, hintImo: Long?): VesselDetails? {
-    return coroutineScope {
-      val mstDeferred = async { myShipTracking(mmsi) }
-      val vfDeferred = async { vesselFinder(mmsi, hintImo) }
-      merge(mstDeferred.await(), vfDeferred.await())
-    }
-  }
-
-  private fun finalize(details: VesselDetails, mmsi: Long): VesselDetails {
-    return details.copy(
-      photoUrls = sanitizeVesselPhotoUrls(details.photoUrls),
-      infoLinks = (details.infoLinks + vesselTrackingLinks(mmsi)).distinctBy { it.url },
-    )
-  }
-
-  private suspend fun vesselFinder(mmsi: Long, imo: Long?): VesselDetails? {
-    val id = imo ?: mmsi
-    val url = "https://www.vesselfinder.com/vessels/details/$id"
+  private suspend fun fetchAndParse(url: String, parse: (String) -> VesselDetails): VesselDetails? {
     val html = fetch(url) ?: return null
-    return runCatching { vesselFinderParser.parse(html, url) }.getOrNull()
-  }
-
-  private suspend fun myShipTracking(mmsi: Long): VesselDetails? {
-    val url = "https://www.myshiptracking.com/vessels/$mmsi"
-    val html = fetch(url) ?: return null
-    return runCatching { myShipTrackingParser.parse(html, url) }.getOrNull()
+    return runCatching { parse(html) }.getOrNull()
   }
 
   private suspend fun fetch(url: String): String? {

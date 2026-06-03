@@ -1,9 +1,5 @@
 package eu.slickbot.airnav.data.ais.info
 
-/**
- * Drops placeholder/welcome URLs that the upstream sites serve when they
- * don't actually have a photo. Also blanks-out empty strings and dedupes.
- */
 internal fun sanitizeVesselPhotoUrls(urls: List<String>): List<String> {
   return urls.asSequence()
     .mapNotNull { it.trim().ifBlank { null } }

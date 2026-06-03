@@ -10,9 +10,6 @@ data class IcaoDescriptionCodeResult(
   val message: String? = null,
 )
 
-/**
- * Decodes an ICAO 3-character description code (e.g. "L2J" → Landplane / 2 / Jet).
- */
 class IcaoDescriptionCodeDecoder {
 
   companion object {

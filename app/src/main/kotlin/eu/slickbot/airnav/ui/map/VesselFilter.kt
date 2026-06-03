@@ -2,11 +2,6 @@ package eu.slickbot.airnav.ui.map
 
 import eu.slickbot.airnav.data.ais.Vessel
 
-/**
- * Client-side vessel filtering applied before markers render, mirroring
- * [AircraftFilter]. Ship-type membership uses [vesselFilterCategory]; status
- * membership uses [resolveAisStatusFilterKey]. Pure (no Android types).
- */
 data class VesselFilter(
   val hiddenCategoryCodes: Set<String> = emptySet(),
   val hiddenStatusCodes: Set<String> = emptySet(),

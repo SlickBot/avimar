@@ -2,9 +2,6 @@ package eu.slickbot.airnav.data.adsb.info
 
 import java.time.Instant
 
-/**
- * Resolved static or semi-static aircraft metadata.
- */
 data class AircraftInfo(
   val icao: String,
   val registration: String? = null,
@@ -24,7 +21,6 @@ data class AircraftInfo(
   val updatedAt: Instant? = null,
 )
 
-/** Doc8643 technical specs surfaced in the DetailSheet. */
 data class AircraftSpecs(
   val manufacturers: List<String> = emptyList(),
   val wingSpanM: Double? = null,
@@ -46,20 +42,8 @@ data class AircraftSpecs(
 data class AircraftFlightRoute(
   val callsign: String? = null,
   val callsignIcao: String? = null,
-  val callsignIata: String? = null,
-  val airline: AircraftFlightAirline? = null,
   val origin: AircraftFlightAirport? = null,
   val destination: AircraftFlightAirport? = null,
-  val midpoint: AircraftFlightAirport? = null,
-)
-
-data class AircraftFlightAirline(
-  val name: String? = null,
-  val icao: String? = null,
-  val iata: String? = null,
-  val country: String? = null,
-  val countryIso: String? = null,
-  val callsign: String? = null,
 )
 
 data class AircraftFlightAirport(
@@ -67,11 +51,6 @@ data class AircraftFlightAirport(
   val iata: String? = null,
   val icao: String? = null,
   val municipality: String? = null,
-  val countryIso: String? = null,
-  val countryName: String? = null,
-  val elevation: Double? = null,
-  val latitude: Double? = null,
-  val longitude: Double? = null,
 )
 
 data class AircraftInfoLink(

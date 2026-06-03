@@ -8,13 +8,6 @@ import eu.slickbot.airnav.data.common.BoundedTtlCache
 import java.time.Clock
 import java.time.Duration
 
-/**
- * Doc8643 lookup. Tries the online doc8643.com scraper first (when an
- * [onlineFetch] is supplied), falls back to the bundled
- * [TypeDesignatorCatalog]. Positive + negative TTL caches sit in front of
- * both paths so a single failure or successful fetch doesn't repeat for
- * the cache lifetime.
- */
 class Doc8643LookupService(
   private val catalog: TypeDesignatorCatalog,
   private val decoder: IcaoDescriptionCodeDecoder,
@@ -48,14 +41,9 @@ class Doc8643LookupService(
     if (normalized.isEmpty()) {
       return emptyMap()
     }
-    val results = LinkedHashMap<String, Doc8643LookupResponse>(normalized.size)
-    for (designator in normalized) {
-      val result = runCatching { lookup(designator) }.getOrNull()
-      if (result != null) {
-        results[designator] = result
-      }
-    }
-    return results
+    return normalized.associateWith { runCatching { lookup(it) }.getOrNull() }
+      .filterValues { it != null }
+      .mapValues { it.value!! }
   }
 
   fun lookup(designator: String): Doc8643LookupResponse {
@@ -65,59 +53,48 @@ class Doc8643LookupService(
     if (negativeCache.get(normalized) != null) {
       throw NoSuchElementException("Unknown designator $normalized (negative-cached)")
     }
-
-    val cached = cache.get(normalized)
-    if (cached != null) {
-      return cached
-    }
+    cache.get(normalized)?.let { return it }
 
     // 1. Try the online scraper, if configured.
-    val onlineResponse = onlineFetch?.let { fetch ->
-      runCatching { fetch(normalized) }.getOrNull()
-    }
+    val onlineResponse = onlineFetch?.let { runCatching { it(normalized) }.getOrNull() }
     if (onlineResponse != null) {
-      val response = Doc8643LookupResponse(
+      return cacheAndReturn(normalized, Doc8643LookupResponse(
         designator = normalized,
         sourceUrl = onlineResponse.sourceUrl,
         cacheTimestampMs = onlineResponse.cacheTimestampMs,
         aircraft = onlineResponse.aircraft,
         descriptionDecoded = decodeDescription(onlineResponse.aircraft.classification),
-      )
-      cache.put(normalized, response)
-      return response
+      ))
     }
 
     // 2. Fall back to the bundled catalog.
     val fallback = catalog.findByDesignator(normalized).firstOrNull()
-    if (fallback == null) {
-      negativeCache.put(normalized, NEGATIVE_MARKER)
-      throw NoSuchElementException("Unknown designator $normalized")
-    }
-    val response = Doc8643LookupResponse(
+      ?: run {
+        negativeCache.put(normalized, NEGATIVE_MARKER)
+        throw NoSuchElementException("Unknown designator $normalized")
+      }
+    return cacheAndReturn(normalized, Doc8643LookupResponse(
       designator = normalized,
       sourceUrl = null,
       cacheTimestampMs = null,
       aircraft = buildAircraft(fallback),
       descriptionDecoded = decodeDescription(fallback.description),
-    )
-    cache.put(normalized, response)
+    ))
+  }
+
+  private fun cacheAndReturn(key: String, response: Doc8643LookupResponse): Doc8643LookupResponse {
+    cache.put(key, response)
     return response
   }
 
   private fun normalizeDesignator(raw: String?): String? {
     val normalized = raw?.trim()?.uppercase().orEmpty()
-    if (normalized.isBlank()) {
-      return null
-    }
-    return normalized
+    return normalized.ifBlank { null }
   }
 
   private fun decodeDescription(rawCode: String?): IcaoDescriptionCodeResult? {
     val code = rawCode?.trim().orEmpty()
-    if (code.length != 3) {
-      return null
-    }
-    return decoder.decode(code)
+    return if (code.length == 3) decoder.decode(code) else null
   }
 
   private fun buildAircraft(entry: TypeDesignatorEntry): Doc8643AircraftDetail {

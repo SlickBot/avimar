@@ -21,16 +21,8 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
 
-/**
- * Streams AIS data from wss://stream.aisstream.io/v0/stream.
- *
- *  - The first message after connect must be a subscription with the API key
- *    and bounding box(es). Subsequent subscription messages on the same socket
- *    replace the active filter.
- *  - Reconnect uses a failure-streak backoff ([BackoffPolicy]): a session that
- *    translated at least one message resets the streak.
- */
 class AisStreamClient(
   private val baseClient: OkHttpClient = defaultClient(),
   private val json: Json = defaultJson(),
@@ -38,10 +30,9 @@ class AisStreamClient(
 
   companion object {
     private const val TAG = "AisStreamClient"
-    private const val MIN_BACKOFF_MS = 5_000L
-    private const val MAX_BACKOFF_MS = 60_000L
+    private val MIN_BACKOFF = 5.seconds
+    private val MAX_BACKOFF = 60.seconds
 
-    // WebSocket close codes are app-defined in the 4000-4999 range.
     private const val SERVER_ERROR_CLOSE = 4001
     private const val SUBSCRIPTION_FAIL_CLOSE = 4002
 
@@ -61,7 +52,7 @@ class AisStreamClient(
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var webSocket: WebSocket? = null
   private var reconnectJob: Job? = null
-  private val backoffPolicy = BackoffPolicy(minBackoffMs = MIN_BACKOFF_MS, maxBackoffMs = MAX_BACKOFF_MS)
+  private val backoffPolicy = BackoffPolicy(minBackoff = MIN_BACKOFF, maxBackoff = MAX_BACKOFF)
   private var translatedDuringSession: Long = 0L
 
   @Volatile private var apiKey: String? = null
@@ -115,7 +106,6 @@ class AisStreamClient(
         sendSubscription()
       }
 
-      // aisstream sends its JSON as binary frames, so handle both.
       override fun onMessage(webSocket: WebSocket, text: String) {
         handleFrame(webSocket, text)
       }
@@ -131,14 +121,16 @@ class AisStreamClient(
 
       override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         Log.i(TAG, "WebSocket closed: $code $reason")
-        this@AisStreamClient.webSocket = null
-        _connectionState.value = AisConnectionState.Disconnected
-        if (running) scheduleReconnect()
+        handleDisconnect()
       }
 
       override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         Log.w(TAG, "WebSocket failure: ${t.message}")
-        this@AisStreamClient.webSocket = null
+        handleDisconnect()
+      }
+
+      private fun handleDisconnect() {
+        webSocket = null
         _connectionState.value = AisConnectionState.Disconnected
         if (running) scheduleReconnect()
       }
@@ -146,9 +138,6 @@ class AisStreamClient(
       private fun handleFrame(socket: WebSocket, text: String) {
         runCatching { json.decodeFromString(AisEnvelope.serializer(), text) }
           .onSuccess { env ->
-            // Server-side error frames (bad key, malformed subscription, etc.)
-            // would otherwise be silently swallowed forever. Match v9: close the
-            // session so reconnect logic kicks in with backoff.
             if (env.error != null) {
               Log.w(TAG, "aisstream.error ${env.error}")
               socket.close(SERVER_ERROR_CLOSE, "server_error")
@@ -176,22 +165,18 @@ class AisStreamClient(
       ),
     )
     val body = json.encodeToString(AisStreamSubscription.serializer(), payload)
-    // Subscription send is load-bearing: without it the server delivers nothing
-    // and the session sits silently. Match v9: drop the socket so reconnect
-    // retries with backoff instead of hanging.
     if (!ws.send(body)) {
       Log.w(TAG, "aisstream.subscription_send_failed")
       ws.close(SUBSCRIPTION_FAIL_CLOSE, "subscription_send_failed")
     }
   }
 
-  @Suppress("ConvertLongToDuration")
   private fun scheduleReconnect() {
     if (reconnectJob?.isActive == true) return
-    val delayMs = backoffPolicy.nextDelayMs(translatedDuringSession)
-    Log.i(TAG, "aisstream.session.end translated=$translatedDuringSession reconnect_in_ms=$delayMs")
+    val reconnectDelay = backoffPolicy.nextDelay(translatedDuringSession)
+    Log.i(TAG, "aisstream.session.end translated=$translatedDuringSession reconnect_in=$reconnectDelay")
     reconnectJob = scope.launch {
-      delay(delayMs)
+      delay(reconnectDelay)
       if (running) openSocket()
     }
   }

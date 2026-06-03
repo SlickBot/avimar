@@ -7,11 +7,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-/**
- * Semantic category accents (plane / ship / alert). The bright base accents are tuned
- * for dark surfaces and wash out on light ones, so each resolves to its deepened
- * variant under a light theme. Read these from a composable scope.
- */
 object AirnavAccents {
 
   val plane: Color

@@ -22,10 +22,6 @@ class AirnavApplication : Application(), ImageLoaderFactory {
     }
   }
 
-  // Photo hosts (PlaneSpotters, AirHistory, ShipSpotting, ...) reject non-browser
-  // User-Agents and cross-origin Referers, so Coil's default client 403s on most
-  // images. Send a browser UA and no Referer - the webclient relies on the same
-  // (referrerPolicy="no-referrer") to load these.
   override fun newImageLoader(): ImageLoader {
     val client = OkHttpClient.Builder()
       .addInterceptor { chain ->

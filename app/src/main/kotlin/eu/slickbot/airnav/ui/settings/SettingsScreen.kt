@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,10 +46,11 @@ import eu.slickbot.airnav.data.adsb.AdsbProvider
 import eu.slickbot.airnav.ui.map.SettingsActions
 import eu.slickbot.airnav.ui.map.SettingsState
 import eu.slickbot.airnav.ui.map.TileStyle
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
-private val POLL_PRESETS_MS = listOf("Auto" to 0L, "2s" to 2_000L, "5s" to 5_000L, "10s" to 10_000L, "30s" to 30_000L)
+private val POLL_PRESETS = listOf("Auto" to Duration.ZERO, "2s" to 2.seconds, "5s" to 5.seconds, "10s" to 10.seconds, "30s" to 30.seconds)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
   state: SettingsState,
@@ -78,9 +79,9 @@ fun SettingsScreen(
     ) { inner ->
       Column(modifier = Modifier.padding(inner).fillMaxSize()) {
         PrimaryTabRow(selectedTabIndex = tab) {
-          Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Aviation") })
-          Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Maritime") })
-          Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("General") })
+          listOf("Aviation", "Maritime", "General").forEachIndexed { i, title ->
+            Tab(selected = tab == i, onClick = { tab = i }, text = { Text(title) })
+          }
         }
         Column(
           modifier = Modifier
@@ -108,25 +109,15 @@ private fun AviationTab(
   onSelectProvider: (AdsbProvider) -> Unit,
 ) {
   ToggleRow("Show aircraft", state.aviationVisible, actions::setAviationVisible)
-  Text("Source")
-  FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-    AdsbProvider.entries.forEach { p ->
-      FilterChip(selected = p == provider, onClick = { onSelectProvider(p) }, label = { Text(p.displayName) })
-    }
+  ChipSelector("Source", AdsbProvider.entries, selected = { it == provider }, label = { it.displayName }) {
+    onSelectProvider(it)
   }
-  Text("Refresh interval")
-  FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-    POLL_PRESETS_MS.forEach { (label, ms) ->
-      FilterChip(selected = state.adsbPollMs == ms, onClick = { actions.setAdsbPollMs(ms) }, label = { Text(label) })
-    }
+  ChipSelector("Refresh interval", POLL_PRESETS, selected = { (_, d) -> state.adsbPollInterval == d }, label = { (l, _) -> l }) {
+    actions.setAdsbPollInterval(it.second)
   }
-  Text("Request timeout: ${state.adsbTimeoutSec}s")
-  Slider(
-    value = state.adsbTimeoutSec.toFloat(),
-    onValueChange = { actions.setAdsbTimeoutSec(it.toInt()) },
-    valueRange = 5f..60f,
-    steps = 10,
-  )
+  LabeledSlider("Request timeout: ${state.requestTimeout.inWholeSeconds}s", state.requestTimeout.inWholeSeconds.toFloat(), 5f..60f, steps = 10) {
+    actions.setRequestTimeout(it.toInt().seconds)
+  }
   ToggleRow("Hide grounded aircraft", state.hideGrounded, actions::setHideGrounded)
   AltitudeFilter(state, actions)
 }
@@ -145,20 +136,29 @@ private fun GeneralTab(
   tileStyle: TileStyle,
   onSelectTileStyle: (TileStyle) -> Unit,
 ) {
-  Text("Base map")
+  ChipSelector("Base map", TileStyle.entries, selected = { it == tileStyle }, label = { it.displayName }) {
+    onSelectTileStyle(it)
+  }
+  LabeledSlider("Marker size: ${"%.1f".format(state.markerScale)}x", state.markerScale, 0.5f..2.0f, steps = 14) {
+    actions.setMarkerScale(it)
+  }
+  ToggleRow("Trails", state.trailsEnabled, actions::setTrailsEnabled)
+}
+
+@Composable
+private fun <T> ChipSelector(heading: String, items: Iterable<T>, selected: (T) -> Boolean, label: (T) -> String, onSelect: (T) -> Unit) {
+  Text(heading)
   FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-    TileStyle.entries.forEach { style ->
-      FilterChip(selected = style == tileStyle, onClick = { onSelectTileStyle(style) }, label = { Text(style.displayName) })
+    items.forEach { item ->
+      FilterChip(selected = selected(item), onClick = { onSelect(item) }, label = { Text(label(item)) })
     }
   }
-  Text("Marker size: ${"%.1f".format(state.markerScale)}x")
-  Slider(
-    value = state.markerScale,
-    onValueChange = { actions.setMarkerScale(it) },
-    valueRange = 0.5f..2.0f,
-    steps = 14,
-  )
-  ToggleRow("Trails", state.trailsEnabled, actions::setTrailsEnabled)
+}
+
+@Composable
+private fun LabeledSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float>, steps: Int, onValueChange: (Float) -> Unit) {
+  Text(label)
+  Slider(value = value, onValueChange = onValueChange, valueRange = range, steps = steps)
 }
 
 @Composable
@@ -179,23 +179,21 @@ private fun AltitudeFilter(state: SettingsState, actions: SettingsActions) {
   var maxText by remember(state.maxAltitudeM) { mutableStateOf(state.maxAltitudeM?.toString().orEmpty()) }
   Text("Altitude filter (m)")
   Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-    OutlinedTextField(
-      value = minText,
-      onValueChange = { minText = it.filter(Char::isDigit); actions.setMinAltitudeM(minText.toIntOrNull()) },
-      label = { Text("Min") },
-      singleLine = true,
-      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-      modifier = Modifier.weight(1f),
-    )
-    OutlinedTextField(
-      value = maxText,
-      onValueChange = { maxText = it.filter(Char::isDigit); actions.setMaxAltitudeM(maxText.toIntOrNull()) },
-      label = { Text("Max") },
-      singleLine = true,
-      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-      modifier = Modifier.weight(1f),
-    )
+    AltitudeField("Min", minText, { minText = it; actions.setMinAltitudeM(it.toIntOrNull()) })
+    AltitudeField("Max", maxText, { maxText = it; actions.setMaxAltitudeM(it.toIntOrNull()) })
   }
+}
+
+@Composable
+private fun RowScope.AltitudeField(label: String, value: String, onValueChange: (String) -> Unit) {
+  OutlinedTextField(
+    value = value,
+    onValueChange = { onValueChange(it.filter(Char::isDigit)) },
+    label = { Text(label) },
+    singleLine = true,
+    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+    modifier = Modifier.weight(1f),
+  )
 }
 
 @Composable

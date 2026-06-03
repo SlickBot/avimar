@@ -71,6 +71,12 @@ android {
 kotlin {
   compilerOptions {
     jvmTarget.set(JvmTarget.JVM_17)
+    optIn.addAll(
+      "kotlinx.coroutines.ExperimentalCoroutinesApi",
+      "kotlinx.coroutines.FlowPreview",
+      "androidx.compose.material3.ExperimentalMaterial3Api",
+      "kotlinx.serialization.ExperimentalSerializationApi",
+    )
   }
 }
 

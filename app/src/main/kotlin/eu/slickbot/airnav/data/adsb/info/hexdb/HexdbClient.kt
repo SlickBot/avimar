@@ -6,9 +6,6 @@ import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/**
- * hexdb.io aircraft metadata + image-url lookup.
- */
 class HexdbClient(
   private val baseUrl: String = "https://hexdb.io",
   private val jsonFetcher: JsonTextFetcher,

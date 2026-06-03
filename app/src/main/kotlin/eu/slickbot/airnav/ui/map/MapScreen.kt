@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -53,14 +52,12 @@ import eu.slickbot.airnav.ui.search.AirnavSearchBar
 import eu.slickbot.airnav.ui.search.SearchHit
 import eu.slickbot.airnav.ui.search.searchHits
 import eu.slickbot.airnav.ui.settings.SettingsScreen
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+import kotlin.time.Duration.Companion.milliseconds
 
-@Suppress("ConvertLongToDuration")
-@OptIn(FlowPreview::class, ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(modifier: Modifier = Modifier) {
   val viewModel: MapViewModel = koinViewModel()
@@ -68,9 +65,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
   var controller by remember { mutableStateOf<MapController?>(null) }
 
   val containerHeightPx = LocalWindowInfo.current.containerSize.height.toFloat()
-  // Half-screen peek = the sheet's resting height when a vehicle is selected.
   val halfPeek = with(LocalDensity.current) { (containerHeightPx * 0.5f).toDp() }
-  // Camera bottom padding matching the half-screen sheet peek (open + follow fallback).
   val halfScreenPaddingPx = (containerHeightPx * 0.5f).toDouble()
   val scope = rememberCoroutineScope()
   val scaffoldState = rememberBottomSheetScaffoldState(
@@ -81,7 +76,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
   )
   val sheetState = scaffoldState.bottomSheetState
 
-  // Cap the legend panel at 75% of the window height so it tucks under the top bar.
   val legendMaxHeight = with(LocalDensity.current) {
     (LocalWindowInfo.current.containerSize.height * 0.75f).toDp()
   }
@@ -316,8 +310,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
     )
   }
 
-  // Full-screen photo viewer as a top-level overlay (the activity is edge-to-edge, so
-  // it covers the whole screen including behind the system bars).
   photoViewer?.let { req ->
     PhotoViewer(
       urls = req.urls,
@@ -333,17 +325,13 @@ fun MapScreen(modifier: Modifier = Modifier) {
 
   LaunchedEffect(controller) {
     val b = controller ?: return@LaunchedEffect
-    viewModel.vessels.sample(VESSEL_PUSH_INTERVAL_MS).collect { b.updateVessels(it) }
+    viewModel.vessels.sample(VESSEL_PUSH_INTERVAL).collect { b.updateVessels(it) }
   }
 
-  // Reset camera padding only when nothing is selected (the sheet is gone).
   LaunchedEffect(controller, selectionKey) {
     if (selectionKey == null) controller?.resetCameraPadding()
   }
 
-  // Drive the sheet between half / hidden as the selection identity changes.
-  // Keyed on selectionKey (not the whole selection) so position ticks don't
-  // re-snap the sheet, but swapping vehicle does.
   LaunchedEffect(selectionKey) {
     if (selectionKey == null) {
       sheetState.hide()
@@ -352,7 +340,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
   }
 
-  // A user drag of the sheet down to Hidden clears the selection (cancels the fetch).
   LaunchedEffect(sheetState) {
     snapshotFlow { sheetState.currentValue }.collect { value ->
       if (value == SheetValue.Hidden && viewModel.selection.value != null) {
@@ -361,7 +348,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
   }
 
-  // Center the target above the half sheet when a (new) selection opens.
   LaunchedEffect(controller, selectionKey) {
     val b = controller ?: return@LaunchedEffect
     val s = viewModel.selection.value ?: return@LaunchedEffect
@@ -369,12 +355,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
     b.setCenter(lat, lon, zoom = null, bottomPaddingPx = halfScreenPaddingPx)
   }
 
-  // Ease the camera padding off as soon as the sheet targets Hidden, so the map
-  // refocus overlaps the slide-down instead of waiting for it to settle. Reverses
-  // cleanly if the dismiss is dragged back up. Selection (and sheet content) stay
-  // until the sheet fully settles - this only moves the camera. While following we
-  // recenter on the vehicle; otherwise we just adjust padding at the current center
-  // so a panned-away map is not yanked back to the vehicle on close.
   LaunchedEffect(controller) {
     snapshotFlow { sheetState.targetValue }.collect { target ->
       val b = controller ?: return@collect
@@ -389,11 +369,11 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
   }
 
-  LaunchedEffect(controller, tileStyle) { controller?.setTileStyle(tileStyle.id) }
-  LaunchedEffect(controller, markerScale) { controller?.setMarkerScale(markerScale) }
-  LaunchedEffect(controller, trailsEnabled) { controller?.setTrailsEnabled(trailsEnabled) }
-  LaunchedEffect(controller, aviationVisible) { controller?.setAviationVisible(aviationVisible) }
-  LaunchedEffect(controller, maritimeVisible) { controller?.setMaritimeVisible(maritimeVisible) }
+  SyncToController(controller, tileStyle) { it.setTileStyle(tileStyle.id) }
+  SyncToController(controller, markerScale) { it.setMarkerScale(markerScale) }
+  SyncToController(controller, trailsEnabled) { it.setTrailsEnabled(trailsEnabled) }
+  SyncToController(controller, aviationVisible) { it.setAviationVisible(aviationVisible) }
+  SyncToController(controller, maritimeVisible) { it.setMaritimeVisible(maritimeVisible) }
 
   LaunchedEffect(controller) {
     val b = controller ?: return@LaunchedEffect
@@ -409,7 +389,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
     }
   }
 
-  // While following, re-center on each position update, padding by the live sheet height.
   LaunchedEffect(controller) {
     val b = controller ?: return@LaunchedEffect
     combine(viewModel.isFollowing, viewModel.selection) { f, s -> f to s }
@@ -424,13 +403,18 @@ fun MapScreen(modifier: Modifier = Modifier) {
   }
 }
 
-private const val VESSEL_PUSH_INTERVAL_MS = 500L
+private val VESSEL_PUSH_INTERVAL = 500.milliseconds
 
 private data class PhotoViewerRequest(
   val urls: List<String>,
   val index: Int,
   val contentDescription: String,
 )
+
+@Composable
+private fun SyncToController(controller: MapController?, key: Any?, block: (MapController) -> Unit) {
+  LaunchedEffect(controller, key) { controller?.let(block) }
+}
 
 private fun selectionKeyOf(s: MapSelection): String {
   return when (s) {

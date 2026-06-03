@@ -15,16 +15,6 @@ private const val TRANSFORMATION = "AES/GCM/NoPadding"
 private const val GCM_TAG_BITS = 128
 private const val IV_BYTES = 12
 
-/**
- * AES-256-GCM encryption backed by a key held in the Android Keystore. The raw
- * key material never leaves the Keystore; we only ask it to encrypt and decrypt.
- * Replaces the deprecated Jetpack Security EncryptedSharedPreferences.
- *
- * Stored form is Base64(IV ‖ ciphertext+tag); a fresh random IV is generated per
- * encryption, as GCM requires. decrypt() returns null on any failure, so a key
- * rotated out by backup/restore or a tampered blob yields no value instead of a
- * crash.
- */
 class KeystoreStringCipher : StringCipher {
 
   override fun encrypt(plain: String): String {

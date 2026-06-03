@@ -21,10 +21,9 @@ import eu.slickbot.airnav.data.search.RecentEntity
 import eu.slickbot.airnav.data.search.SearchHistoryRepository
 import eu.slickbot.airnav.data.settings.SecureKeyStore
 import eu.slickbot.airnav.data.settings.SettingsRepository
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -42,6 +41,9 @@ import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 sealed interface MapSelection {
   data class Plane(val aircraft: Aircraft) : MapSelection
@@ -50,8 +52,6 @@ sealed interface MapSelection {
 
 data class CenterCommand(val lat: Double, val lon: Double, val zoom: Double?)
 
-@Suppress("ConvertLongToDuration")
-@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MapViewModel(
   private val adsbRepo: AdsbRepository,
   private val aisRepo: AisRepository,
@@ -61,7 +61,7 @@ class MapViewModel(
   private val aircraftInfoProvider: AircraftInfoProvider,
   private val vesselEnricher: VesselEnricher,
   private val searchHistory: SearchHistoryRepository,
-) : ViewModel() {
+) : ViewModel(), SettingsActions {
 
   companion object {
     private const val TAG = "MapViewModel"
@@ -82,93 +82,46 @@ class MapViewModel(
       hideGrounded = hideGrounded,
       hiddenCategoryCodes = hidden,
     )
-  }.stateIn(viewModelScope, SharingStarted.Eagerly, AircraftFilter.NONE)
+  }.eager(AircraftFilter.NONE)
 
-  /** Aircraft as drawn on the map: the latest fetch with the user's filters applied. */
   val aircraft: StateFlow<List<Aircraft>> = combine(_aircraft, aircraftFilter) { list, filter ->
     filter.apply(list)
-  }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+  }.eager(emptyList())
 
-  val markerScale: StateFlow<Float> = settings.markerScale.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = 1.0f,
-  )
+  val markerScale: StateFlow<Float> = settings.markerScale.eager(1.0f)
 
-  val hiddenAircraftCategories: StateFlow<Set<String>> = settings.hiddenAircraftCategories.stateIn(
-    viewModelScope, SharingStarted.Eagerly, emptySet(),
-  )
-  val hiddenVesselCategories: StateFlow<Set<String>> = settings.hiddenVesselCategories.stateIn(
-    viewModelScope, SharingStarted.Eagerly, emptySet(),
-  )
-  val hiddenVesselStatuses: StateFlow<Set<String>> = settings.hiddenVesselStatuses.stateIn(
-    viewModelScope, SharingStarted.Eagerly, emptySet(),
-  )
+  val hiddenAircraftCategories: StateFlow<Set<String>> = settings.hiddenAircraftCategories.eager(emptySet())
+  val hiddenVesselCategories: StateFlow<Set<String>> = settings.hiddenVesselCategories.eager(emptySet())
+  val hiddenVesselStatuses: StateFlow<Set<String>> = settings.hiddenVesselStatuses.eager(emptySet())
 
   private val vesselFilter: StateFlow<VesselFilter> = combine(
     settings.hiddenVesselCategories,
     settings.hiddenVesselStatuses,
   ) { categories, statuses ->
     VesselFilter(hiddenCategoryCodes = categories, hiddenStatusCodes = statuses)
-  }.stateIn(viewModelScope, SharingStarted.Eagerly, VesselFilter.NONE)
+  }.eager(VesselFilter.NONE)
 
-  /** Vessels as drawn on the map: the AIS feed with the user's filters applied. */
   val vessels: StateFlow<List<Vessel>> = combine(aisRepo.vessels, vesselFilter) { list, filter ->
     filter.apply(list)
-  }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+  }.eager(emptyList())
+
   val aisConnection: StateFlow<AisConnectionState> = aisRepo.connectionState
 
   val aisHealth: StateFlow<AisStreamHealth?> = flow {
     while (true) {
       emit(aisRepo.health())
-      delay(2_000L)
+      delay(2.seconds)
     }
-  }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), null)
+  }.whileSubscribed(null)
 
-  val provider: StateFlow<AdsbProvider> = settings.adsbProvider.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = AdsbProvider.AdsbFi,
-  )
+  val provider: StateFlow<AdsbProvider> = settings.adsbProvider.eager(AdsbProvider.AdsbFi)
+  val tileStyle: StateFlow<TileStyle> = settings.tileStyle.eager(TileStyle.CartoDark)
+  val aisEnabled: StateFlow<Boolean> = settings.aisEnabled.eager(true)
+  val trailsEnabled: StateFlow<Boolean> = settings.trailsEnabled.eager(true)
+  val aviationVisible: StateFlow<Boolean> = settings.aviationVisible.eager(true)
+  val maritimeVisible: StateFlow<Boolean> = settings.maritimeVisible.eager(true)
+  val aisApiKey: StateFlow<String?> = secureStore.aisApiKey.eager(null)
 
-  val tileStyle: StateFlow<TileStyle> = settings.tileStyle.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = TileStyle.CartoDark,
-  )
-
-  val aisEnabled: StateFlow<Boolean> = settings.aisEnabled.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = true,
-  )
-
-  val trailsEnabled: StateFlow<Boolean> = settings.trailsEnabled.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = true,
-  )
-
-  val aviationVisible: StateFlow<Boolean> = settings.aviationVisible.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = true,
-  )
-
-  val maritimeVisible: StateFlow<Boolean> = settings.maritimeVisible.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = true,
-  )
-
-  val aisApiKey: StateFlow<String?> = secureStore.aisApiKey.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = null,
-  )
-
-  // Settings sheet reads ~12 scalars; bundling lets the sheet take one snapshot
-  // instead of a dozen `by collectAsStateWithLifecycle()` lines at the call site.
   val settingsState: StateFlow<SettingsState> = combine(
     secureStore.aisApiKey,
     settings.aisEnabled,
@@ -177,8 +130,8 @@ class MapViewModel(
     settings.maritimeVisible,
     settings.hideGrounded,
     settings.markerScale,
-    settings.adsbPollMs,
-    settings.adsbTimeoutSec,
+    settings.adsbPollInterval,
+    settings.requestTimeout,
     settings.minAltitudeM,
     settings.maxAltitudeM,
     settings.hiddenAircraftCategories,
@@ -194,44 +147,17 @@ class MapViewModel(
       maritimeVisible = values[4] as Boolean,
       hideGrounded = values[5] as Boolean,
       markerScale = values[6] as Float,
-      adsbPollMs = values[7] as Long,
-      adsbTimeoutSec = values[8] as Int,
+      adsbPollInterval = values[7] as Duration,
+      requestTimeout = values[8] as Duration,
       minAltitudeM = values[9] as Int?,
       maxAltitudeM = values[10] as Int?,
       hiddenAircraftCategories = values[11] as Set<String>,
       hiddenVesselCategories = values[12] as Set<String>,
       hiddenVesselStatuses = values[13] as Set<String>,
     )
-  }.stateIn(viewModelScope, SharingStarted.Eagerly, SettingsState.Empty)
+  }.eager(SettingsState.Empty)
 
-  val settingsActions: SettingsActions = object : SettingsActions {
-    override fun setAisApiKey(value: String?) = this@MapViewModel.setAisApiKey(value)
-    override fun setAisEnabled(enabled: Boolean) = this@MapViewModel.setAisEnabled(enabled)
-    override fun setTrailsEnabled(enabled: Boolean) = this@MapViewModel.setTrailsEnabled(enabled)
-    override fun setAviationVisible(visible: Boolean) = this@MapViewModel.setAviationVisible(visible)
-    override fun setMaritimeVisible(visible: Boolean) = this@MapViewModel.setMaritimeVisible(visible)
-    override fun setHideGrounded(hide: Boolean) = this@MapViewModel.setHideGrounded(hide)
-    override fun setMarkerScale(scale: Float) = this@MapViewModel.setMarkerScale(scale)
-    override fun setAdsbPollMs(ms: Long) = this@MapViewModel.setAdsbPollMs(ms)
-    override fun setAdsbTimeoutSec(seconds: Int) = this@MapViewModel.setAdsbTimeoutSec(seconds)
-    override fun setMinAltitudeM(meters: Int?) = this@MapViewModel.setMinAltitudeM(meters)
-    override fun setMaxAltitudeM(meters: Int?) = this@MapViewModel.setMaxAltitudeM(meters)
-    override fun toggleHiddenAircraftCategory(code: String) {
-      val current = settingsState.value.hiddenAircraftCategories
-      val next = if (code in current) current - code else current + code
-      setHiddenAircraftCategories(next)
-    }
-    override fun toggleHiddenVesselCategory(code: String) {
-      val current = settingsState.value.hiddenVesselCategories
-      val next = if (code in current) current - code else current + code
-      setHiddenVesselCategories(next)
-    }
-    override fun toggleHiddenVesselStatus(code: String) {
-      val current = settingsState.value.hiddenVesselStatuses
-      val next = if (code in current) current - code else current + code
-      setHiddenVesselStatuses(next)
-    }
-  }
+  val settingsActions: SettingsActions get() = this
 
   private val _selectedAircraftHex = MutableStateFlow<String?>(null)
   private val _selectedVesselMmsi = MutableStateFlow<Long?>(null)
@@ -252,10 +178,6 @@ class MapViewModel(
     }
     active to resolved
   }
-    // Sticky selection: once a vehicle is picked, hold its last-known snapshot when
-    // it drops out of the fetched set (panned away) instead of going null. Panning
-    // therefore neither closes nor reopens the sheet; only an explicit deselect
-    // (both ids cleared) does. Fresh data replaces the snapshot when it returns.
     .runningFold<Pair<Boolean, MapSelection?>, MapSelection?>(null) { prev, (active, resolved) ->
       when {
         !active -> null
@@ -263,13 +185,9 @@ class MapViewModel(
         else -> prev
       }
     }
-    .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    .eager(null)
 
-  val recentEntities: StateFlow<List<RecentEntity>> = searchHistory.recentEntities.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = emptyList(),
-  )
+  val recentEntities: StateFlow<List<RecentEntity>> = searchHistory.recentEntities.eager(emptyList())
 
   val planeEnrichment: StateFlow<Loadable<AircraftInfo>> = _selectedAircraftHex
     .flatMapLatest { hex ->
@@ -289,7 +207,7 @@ class MapViewModel(
         }
       }
     }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Loadable.Loading)
+    .whileSubscribed(Loadable.Loading)
 
   val shipEnrichment: StateFlow<Loadable<VesselDetails>> = _selectedVesselMmsi
     .flatMapLatest { mmsi ->
@@ -300,7 +218,7 @@ class MapViewModel(
         loadableFetch { vesselEnricher.lookup(mmsi, imo) }
       }
     }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Loadable.Loading)
+    .whileSubscribed(Loadable.Loading)
 
   private val _centerCommands = MutableSharedFlow<CenterCommand>(
     extraBufferCapacity = 4,
@@ -309,26 +227,18 @@ class MapViewModel(
   val centerCommands: SharedFlow<CenterCommand> = _centerCommands.asSharedFlow()
 
   init {
-    // Apply the configurable request timeout to the shared HTTP fetchers.
     viewModelScope.launch {
-      settings.adsbTimeoutSec.collect { seconds -> NetworkTuning.callTimeoutMs = seconds * 1000L }
+      settings.requestTimeout.collect { NetworkTuning.callTimeout = it }
     }
 
-    // ADS-B polling loop. Uses the poll-interval override when set, else the
-    // provider default; emits immediately so the first fetch fires as soon as a
-    // viewport is known (and on every pan / provider switch).
     viewModelScope.launch {
       combine(
-        _viewport.filterNotNull().debounce(300),
+        _viewport.filterNotNull().debounce(300.milliseconds),
         provider,
-        settings.adsbPollMs,
-      ) { vp, p, pollMs -> Triple(vp, p, pollMs) }
-        .flatMapLatest { (vp, p, pollMs) ->
-          val interval = if (pollMs > 0L) pollMs else p.minPollIntervalMs
-          // Sequential: each fetch fully completes — or is cancelled by a newer
-          // viewport/provider via flatMapLatest — before the next is scheduled.
-          // No overlap, and the interval is measured from completion, not a fixed
-          // wall-clock timer.
+        settings.adsbPollInterval,
+      ) { vp, p, pollInterval -> Triple(vp, p, pollInterval) }
+        .flatMapLatest { (vp, p, pollInterval) ->
+          val interval = if (pollInterval > Duration.ZERO) pollInterval else p.minPollInterval
           flow {
             while (true) {
               fetchAdsb(p, vp)
@@ -337,15 +247,14 @@ class MapViewModel(
             }
           }
         }
-        .collect { }
+        .collect {}
     }
 
-    // AIS lifecycle.
     viewModelScope.launch {
       combine(
         aisApiKey,
         aisEnabled,
-        _viewport.filterNotNull().debounce(400),
+        _viewport.filterNotNull().debounce(400.milliseconds),
       ) { key, on, vp -> Triple(key, on, vp) }
         .collect { (key, on, vp) ->
           if (key.isNullOrBlank() || !on) {
@@ -361,38 +270,9 @@ class MapViewModel(
     _viewport.value = viewport
   }
 
-  fun selectProvider(provider: AdsbProvider) {
-    viewModelScope.launch { settings.setAdsbProvider(provider) }
-  }
-
-  fun selectTileStyle(style: TileStyle) {
-    viewModelScope.launch { settings.setTileStyle(style) }
-  }
-
-  fun setAisEnabled(enabled: Boolean) {
-    viewModelScope.launch { settings.setAisEnabled(enabled) }
-  }
-
-  fun setTrailsEnabled(enabled: Boolean) {
-    viewModelScope.launch { settings.setTrailsEnabled(enabled) }
-  }
-
-  fun setAviationVisible(visible: Boolean) {
-    viewModelScope.launch { settings.setAviationVisible(visible) }
-  }
-
-  fun setMaritimeVisible(visible: Boolean) {
-    viewModelScope.launch { settings.setMaritimeVisible(visible) }
-  }
-
-  fun setAisApiKey(key: String?) {
-    secureStore.setAisApiKey(key)
-  }
-
   fun selectAircraft(hex: String) {
     _selectedVesselMmsi.value = null
     _selectedAircraftHex.value = hex
-    // Selecting a vehicle starts following it; a manual pan, close, or the chip stops it.
     _following.value = true
     _aircraft.value.firstOrNull { it.hex == hex }?.let { recordRecent(RecentEntity.fromAircraft(it)) }
   }
@@ -402,10 +282,6 @@ class MapViewModel(
     _selectedVesselMmsi.value = mmsi
     _following.value = true
     aisRepo.vessels.value.firstOrNull { it.mmsi == mmsi }?.let { recordRecent(RecentEntity.fromVessel(it)) }
-  }
-
-  private fun recordRecent(entity: RecentEntity) {
-    viewModelScope.launch { searchHistory.add(entity) }
   }
 
   fun removeRecentEntity(entity: RecentEntity) {
@@ -422,11 +298,8 @@ class MapViewModel(
     _following.value = on
   }
 
-  /** A manual map gesture takes camera control, so it disengages follow. */
   fun onMapGesture() {
-    if (_following.value) {
-      _following.value = false
-    }
+    _following.value = false
   }
 
   fun centerOnUser() {
@@ -442,6 +315,62 @@ class MapViewModel(
     return locationProvider.hasPermission()
   }
 
+  fun selectProvider(provider: AdsbProvider) { edit { setAdsbProvider(provider) } }
+  fun selectTileStyle(style: TileStyle) { edit { setTileStyle(style) } }
+  fun setHiddenAircraftCategories(categories: Set<String>) { edit { setHiddenAircraftCategories(categories) } }
+  fun setHiddenVesselCategories(categories: Set<String>) { edit { setHiddenVesselCategories(categories) } }
+  fun setHiddenVesselStatuses(statuses: Set<String>) { edit { setHiddenVesselStatuses(statuses) } }
+
+  // SettingsActions overrides
+
+  override fun setAisApiKey(value: String?) { secureStore.setAisApiKey(value) }
+  override fun setAisEnabled(enabled: Boolean) { edit { setAisEnabled(enabled) } }
+  override fun setTrailsEnabled(enabled: Boolean) { edit { setTrailsEnabled(enabled) } }
+  override fun setAviationVisible(visible: Boolean) { edit { setAviationVisible(visible) } }
+  override fun setMaritimeVisible(visible: Boolean) { edit { setMaritimeVisible(visible) } }
+  override fun setHideGrounded(hide: Boolean) { edit { setHideGrounded(hide) } }
+  override fun setMarkerScale(scale: Float) { edit { setMarkerScale(scale) } }
+  override fun setAdsbPollInterval(interval: Duration) { edit { setAdsbPollInterval(interval) } }
+  override fun setRequestTimeout(timeout: Duration) { edit { setRequestTimeout(timeout) } }
+  override fun setMinAltitudeM(meters: Int?) { edit { setMinAltitudeM(meters) } }
+  override fun setMaxAltitudeM(meters: Int?) { edit { setMaxAltitudeM(meters) } }
+
+  override fun toggleHiddenAircraftCategory(code: String) {
+    val current = settingsState.value.hiddenAircraftCategories
+    val next = if (code in current) current - code else current + code
+    edit { setHiddenAircraftCategories(next) }
+  }
+
+  override fun toggleHiddenVesselCategory(code: String) {
+    val current = settingsState.value.hiddenVesselCategories
+    val next = if (code in current) current - code else current + code
+    edit { setHiddenVesselCategories(next) }
+  }
+
+  override fun toggleHiddenVesselStatus(code: String) {
+    val current = settingsState.value.hiddenVesselStatuses
+    val next = if (code in current) current - code else current + code
+    edit { setHiddenVesselStatuses(next) }
+  }
+
+  // Private helpers
+
+  private fun edit(block: suspend SettingsRepository.() -> Unit) {
+    viewModelScope.launch { settings.block() }
+  }
+
+  private fun <T> Flow<T>.eager(initial: T): StateFlow<T> {
+    return stateIn(viewModelScope, SharingStarted.Eagerly, initial)
+  }
+
+  private fun <T> Flow<T>.whileSubscribed(initial: T): StateFlow<T> {
+    return stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), initial)
+  }
+
+  private fun recordRecent(entity: RecentEntity) {
+    viewModelScope.launch { searchHistory.add(entity) }
+  }
+
   private suspend fun fetchAdsb(provider: AdsbProvider, viewport: Viewport) {
     val radius = ceil(viewport.radiusNm).toInt().coerceAtLeast(1)
     runCatching {
@@ -451,43 +380,5 @@ class MapViewModel(
     }.onFailure { t ->
       Log.w(TAG, "ADS-B fetch failed (${provider.id}): ${t.message}")
     }
-  }
-
-  // ADS-B filter / fetch-tuning setters.
-
-  fun setMarkerScale(scale: Float) {
-    viewModelScope.launch { settings.setMarkerScale(scale) }
-  }
-
-  fun setAdsbPollMs(ms: Long) {
-    viewModelScope.launch { settings.setAdsbPollMs(ms) }
-  }
-
-  fun setAdsbTimeoutSec(seconds: Int) {
-    viewModelScope.launch { settings.setAdsbTimeoutSec(seconds) }
-  }
-
-  fun setMinAltitudeM(meters: Int?) {
-    viewModelScope.launch { settings.setMinAltitudeM(meters) }
-  }
-
-  fun setMaxAltitudeM(meters: Int?) {
-    viewModelScope.launch { settings.setMaxAltitudeM(meters) }
-  }
-
-  fun setHideGrounded(hide: Boolean) {
-    viewModelScope.launch { settings.setHideGrounded(hide) }
-  }
-
-  fun setHiddenAircraftCategories(categories: Set<String>) {
-    viewModelScope.launch { settings.setHiddenAircraftCategories(categories) }
-  }
-
-  fun setHiddenVesselCategories(categories: Set<String>) {
-    viewModelScope.launch { settings.setHiddenVesselCategories(categories) }
-  }
-
-  fun setHiddenVesselStatuses(statuses: Set<String>) {
-    viewModelScope.launch { settings.setHiddenVesselStatuses(statuses) }
   }
 }

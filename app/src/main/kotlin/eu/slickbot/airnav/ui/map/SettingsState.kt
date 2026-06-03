@@ -1,10 +1,8 @@
 package eu.slickbot.airnav.ui.map
 
-/**
- * Snapshot of every value the Settings sheet reads. Bundling them lets the
- * sheet take one [SettingsState] + one [SettingsActions] instead of a dozen
- * scalars and a dozen callbacks each.
- */
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+
 data class SettingsState(
   val aisApiKey: String?,
   val aisEnabled: Boolean,
@@ -13,8 +11,8 @@ data class SettingsState(
   val maritimeVisible: Boolean,
   val hideGrounded: Boolean,
   val markerScale: Float,
-  val adsbPollMs: Long,
-  val adsbTimeoutSec: Int,
+  val adsbPollInterval: Duration,
+  val requestTimeout: Duration,
   val minAltitudeM: Int?,
   val maxAltitudeM: Int?,
   val hiddenAircraftCategories: Set<String>,
@@ -30,8 +28,8 @@ data class SettingsState(
       maritimeVisible = true,
       hideGrounded = false,
       markerScale = 1f,
-      adsbPollMs = 0L,
-      adsbTimeoutSec = 15,
+      adsbPollInterval = Duration.ZERO,
+      requestTimeout = 15.seconds,
       minAltitudeM = null,
       maxAltitudeM = null,
       hiddenAircraftCategories = emptySet(),
@@ -41,7 +39,6 @@ data class SettingsState(
   }
 }
 
-/** Side-effects the Settings sheet can fire. */
 interface SettingsActions {
   fun setAisApiKey(value: String?)
   fun setAisEnabled(enabled: Boolean)
@@ -50,8 +47,8 @@ interface SettingsActions {
   fun setMaritimeVisible(visible: Boolean)
   fun setHideGrounded(hide: Boolean)
   fun setMarkerScale(scale: Float)
-  fun setAdsbPollMs(ms: Long)
-  fun setAdsbTimeoutSec(seconds: Int)
+  fun setAdsbPollInterval(interval: Duration)
+  fun setRequestTimeout(timeout: Duration)
   fun setMinAltitudeM(meters: Int?)
   fun setMaxAltitudeM(meters: Int?)
   fun toggleHiddenAircraftCategory(code: String)

@@ -30,10 +30,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 
-/**
- * Full-screen image viewer with pinch-zoom + pan, swipe-between via pager.
- * Double-tap toggles between fit and 2x zoom centered on the tap point.
- */
 @Composable
 fun PhotoViewer(
   urls: List<String>,
@@ -42,8 +38,6 @@ fun PhotoViewer(
   onDismiss: () -> Unit,
 ) {
   if (urls.isEmpty()) return
-  // A full-screen overlay (not a Dialog): the host activity is edge-to-edge, so this
-  // covers the whole screen including behind the system bars - no dialog-window gap.
   BackHandler(onBack = onDismiss)
   Box(
     modifier = Modifier

@@ -43,16 +43,6 @@ import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
-/**
- * Native equivalent of the old `JsBridge`: drives a [MapLibreMap] through the
- * same operation surface MapScreen expects. Aircraft / vessels / trails / the
- * selection ring are each a single [GeoJsonSource] rendered by one GPU layer,
- * so the map scales to thousands of markers (unlike the per-DOM-marker Leaflet
- * map, which crashed the GPU).
- *
- * A raster style switch wipes all sources/layers, so all state is cached and
- * re-applied in [onStyleLoaded].
- */
 class MapController(private val map: MapLibreMap) {
 
   companion object {
@@ -293,15 +283,10 @@ class MapController(private val map: MapLibreMap) {
     if (zoom != null) {
       builder.zoom(zoom)
     }
-    // Bottom padding shifts the centered target up into the map area still
-    // visible above the detail sheet (used when following).
     builder.padding(0.0, 0.0, 0.0, bottomPaddingPx)
     map.animateCamera(CameraUpdateFactory.newCameraPosition(builder.build()))
   }
 
-  /** Animates to [bottomPaddingPx] of bottom camera padding while keeping the current
-   *  center and zoom. Eases the map for the detail sheet without moving where it looks
-   *  (used when the sheet opens/closes and we are not following a vehicle). */
   fun setCameraPadding(bottomPaddingPx: Double) {
     val target = map.cameraPosition.target ?: return
     map.animateCamera(
@@ -315,7 +300,6 @@ class MapController(private val map: MapLibreMap) {
     )
   }
 
-  /** Clears leftover detail-sheet padding, keeping the current center. */
   fun resetCameraPadding() {
     setCameraPadding(0.0)
   }

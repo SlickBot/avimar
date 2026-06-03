@@ -5,9 +5,6 @@ import kotlinx.serialization.json.Json
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-/**
- * adsbdb.com aircraft+flightroute lookup.
- */
 class AdsbDbClient(
   private val baseUrl: String = "https://api.adsbdb.com/v0",
   private val fetcher: JsonTextFetcher,

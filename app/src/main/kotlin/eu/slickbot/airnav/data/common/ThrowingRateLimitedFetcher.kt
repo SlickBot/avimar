@@ -4,10 +4,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-/**
- * Generic fetch wrapper that throws [RateLimitException] when any configured
- * rate limit would be exceeded. Supports multiple sliding-window limits.
- */
 class ThrowingRateLimitedFetcher<Q, R>(
   private val fetcher: (Q) -> R,
   private val limits: List<RateLimit>,

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
@@ -31,11 +32,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.toColorInt
 
-/**
- * One legend row's data: a filter [code], a [label], a [glyph], and an optional
- * short [codeLabel] shown beside the glyph (the ADS-B emitter code for aircraft;
- * null for vessels/status where there is no meaningful short code).
- */
 data class CategoryRow(
   val code: String,
   val label: String,
@@ -44,19 +40,11 @@ data class CategoryRow(
 )
 
 sealed interface CategoryGlyph {
-  /** ADS-B silhouette by category code. */
   data class Aircraft(val categoryCode: String) : CategoryGlyph
-  /** Vessel silhouette by icon category. */
   data class VesselSilhouette(val iconCategory: VesselIconCategory) : CategoryGlyph
-  /** Colored dot (navigational status). */
   data class Dot(val colorHex: String) : CategoryGlyph
 }
 
-/**
- * Legend + filter list shared by the on-map legend panel and the settings tabs.
- * Each row is the real marker glyph + label + checkbox; checking shows the
- * category, unchecking hides it. "Hide all / Show all" toggles the whole group.
- */
 @Composable
 fun CategoryFilterList(
   title: String,
@@ -136,27 +124,25 @@ fun CategoryFilterList(
 @Composable
 private fun CategoryGlyphIcon(glyph: CategoryGlyph) {
   when (glyph) {
-    is CategoryGlyph.Aircraft -> {
-      val bmp = remember(glyph.categoryCode) {
-        MapIcons.categoryBitmap(adsbCategoryByCode(glyph.categoryCode)).asImageBitmap()
-      }
-      Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(20.dp))
+    is CategoryGlyph.Aircraft -> BitmapGlyphImage(glyph.categoryCode) {
+      MapIcons.categoryBitmap(adsbCategoryByCode(glyph.categoryCode)).asImageBitmap()
     }
-    is CategoryGlyph.VesselSilhouette -> {
-      val bmp = remember(glyph.iconCategory) {
-        MapIcons.vesselBitmap(glyph.iconCategory).asImageBitmap()
-      }
-      Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(20.dp))
+    is CategoryGlyph.VesselSilhouette -> BitmapGlyphImage(glyph.iconCategory) {
+      MapIcons.vesselBitmap(glyph.iconCategory).asImageBitmap()
     }
-    is CategoryGlyph.Dot -> {
-      Box(
-        modifier = Modifier
-          .size(12.dp)
-          .clip(CircleShape)
-          .background(Color(glyph.colorHex.toColorInt())),
-      )
-    }
+    is CategoryGlyph.Dot -> Box(
+      modifier = Modifier
+        .size(12.dp)
+        .clip(CircleShape)
+        .background(Color(glyph.colorHex.toColorInt())),
+    )
   }
+}
+
+@Composable
+private fun BitmapGlyphImage(key: Any, produceBitmap: () -> ImageBitmap) {
+  val bmp = remember(key) { produceBitmap() }
+  Image(bitmap = bmp, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(20.dp))
 }
 
 // ---------- Row builders (single source of truth for both call sites) ----------

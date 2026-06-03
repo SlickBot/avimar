@@ -25,11 +25,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-/**
- * Builds an [AircraftInfoProvider] wired to real clients. A top-level factory
- * (rather than a secondary constructor) avoids Kotlin's "cannot access <this>
- * before instance initialized" when lambdas capture constructor params.
- */
 fun buildAircraftInfoProvider(
   adsbDbClient: AdsbDbClient,
   hexdbClient: HexdbClient,
@@ -52,11 +47,6 @@ fun buildAircraftInfoProvider(
   )
 }
 
-/**
- * Resolves [AircraftInfo] by fanning out across adsbdb, hexdb, foxtrotcharlie,
- * AirHistory, and Doc8643. Merges with adsbdb-first priority, caches the
- * canonical result with TTL, and appends a fixed block of tracking-site links.
- */
 class AircraftInfoProvider internal constructor(
   private val adsbdb: (String, String?) -> AdsbDbAircraftResponse?,
   private val hexdb: (String) -> HexdbAircraftResponse?,
@@ -99,9 +89,7 @@ class AircraftInfoProvider internal constructor(
       )
     }
 
-    val external = withContext(Dispatchers.IO) {
-      resolveExternalSources(normalizedIcao, hint)
-    }
+    val external = withContext(Dispatchers.IO) { resolveExternalSources(normalizedIcao, hint) }
 
     val resolved = merge(
       external.adsbdb?.let { toInfoFromAdsbDb(normalizedIcao, it) },
@@ -136,10 +124,7 @@ class AircraftInfoProvider internal constructor(
     val doc8643: Doc8643LookupResponse?,
   )
 
-  private suspend fun resolveExternalSources(
-    icao: String,
-    hint: AircraftInfoHint?,
-  ): ResolvedExternalSources {
+  private suspend fun resolveExternalSources(icao: String, hint: AircraftInfoHint?): ResolvedExternalSources {
     return coroutineScope {
       val adsbdbDeferred = async { adsbdb(icao, hint?.callsign) }
       val hexdbDeferred = async { hexdb(icao) }
@@ -150,18 +135,8 @@ class AircraftInfoProvider internal constructor(
       val hex = hexdbDeferred.await()?.takeIf { isValidHexdb(it) }
       val foxtrot = foxtrotDeferred.await()?.takeIf { isValidFoxtrotCharlie(it) }
 
-      val registration = normalizeFirst(
-        adsb?.aircraft?.registration,
-        hex?.registration,
-        foxtrot?.registration,
-        hint?.registration,
-      )
-      val typeDesignator = normalizeFirst(
-        adsb?.aircraft?.icaoType,
-        hex?.icaoTypeCode,
-        foxtrot?.icaoTypeCode,
-        hint?.typeDesignator,
-      )
+      val registration = normalizeFirst(adsb?.aircraft?.registration, hex?.registration, foxtrot?.registration, hint?.registration)
+      val typeDesignator = normalizeFirst(adsb?.aircraft?.icaoType, hex?.icaoTypeCode, foxtrot?.icaoTypeCode, hint?.typeDesignator)
       val airHist = registration?.let { reg -> airHistory(reg) }
       val doc = typeDesignator?.let { designator -> doc8643(designator) }
 
@@ -198,16 +173,8 @@ class AircraftInfoProvider internal constructor(
     return AircraftFlightRoute(
       callsign = route.callsign,
       callsignIcao = route.callsignIcao,
-      callsignIata = route.callsignIata,
-      airline = route.airline?.let { a ->
-        AircraftFlightAirline(
-          name = a.name, icao = a.icao, iata = a.iata,
-          country = a.country, countryIso = a.countryIso, callsign = a.callsign,
-        )
-      },
       origin = route.origin?.let { toFlightAirport(it) },
       destination = route.destination?.let { toFlightAirport(it) },
-      midpoint = route.midpoint?.let { toFlightAirport(it) },
     )
   }
 
@@ -215,8 +182,6 @@ class AircraftInfoProvider internal constructor(
     return AircraftFlightAirport(
       name = a.name, iata = a.iata, icao = a.icao,
       municipality = a.municipality,
-      countryIso = a.countryIsoName, countryName = a.countryName,
-      elevation = a.elevation, latitude = a.latitude, longitude = a.longitude,
     )
   }
 
@@ -280,11 +245,6 @@ class AircraftInfoProvider internal constructor(
     )
   }
 
-  /**
-   * doc8643 serves the type photo at a deterministic URL keyed by designator, so we
-   * add it directly instead of depending on the page scrape (which can be Cloudflare-
-   * gated on-device). Deduped against any image the scrape already found.
-   */
   private fun appendDoc8643TypeImage(info: AircraftInfo): AircraftInfo {
     val type = info.typeDesignator?.trim()?.uppercase()?.ifBlank { null } ?: return info
     val url = "https://doc8643.com/static/img/aircraft/large/$type.jpg"
@@ -301,11 +261,8 @@ class AircraftInfoProvider internal constructor(
   private fun toInfoFromHint(icao: String, hint: AircraftInfoHint): AircraftInfo {
     return AircraftInfo(
       icao = icao,
-      callsign = hint.callsign,
-      registration = hint.registration,
-      typeDesignator = hint.typeDesignator,
-      operator = hint.operator,
-      description = hint.description,
+      callsign = hint.callsign, registration = hint.registration,
+      typeDesignator = hint.typeDesignator, operator = hint.operator, description = hint.description,
     )
   }
 
@@ -394,25 +351,20 @@ class AircraftInfoProvider internal constructor(
     val op = operator?.trim()?.ifBlank { null }
     val ds = description?.trim()?.ifBlank { null }
     if (cs == null && reg == null && td == null && op == null && ds == null) return null
-    return AircraftInfoHint(
-      callsign = cs, registration = reg, typeDesignator = td, operator = op, description = ds,
-    )
+    return AircraftInfoHint(callsign = cs, registration = reg, typeDesignator = td, operator = op, description = ds)
   }
 
   private fun normalizeFirst(vararg values: String?): String? {
     values.forEach { raw ->
-      val normalized = raw?.trim()?.uppercase()?.ifBlank { null }
-      if (normalized != null) return normalized
+      val n = raw?.trim()?.uppercase()?.ifBlank { null }
+      if (n != null) return n
     }
     return null
   }
 
   private fun normalizeProviderValue(raw: String?): String? {
     val n = raw?.trim()?.ifBlank { null } ?: return null
-    return when (n) {
-      "---" -> null
-      else -> n
-    }
+    return if (n == "---") null else n
   }
 
   private fun mergeStringList(vararg sources: List<String>): List<String> {

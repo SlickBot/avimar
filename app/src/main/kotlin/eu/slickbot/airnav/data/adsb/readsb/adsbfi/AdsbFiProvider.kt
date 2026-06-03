@@ -11,9 +11,6 @@ import kotlinx.serialization.json.Json
 import java.time.Clock
 import java.time.Duration
 
-/**
- * adsb.fi point provider.
- */
 class AdsbFiProvider(
   fetcher: JsonTextFetcher,
   json: Json,

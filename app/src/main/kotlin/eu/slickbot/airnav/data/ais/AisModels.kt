@@ -6,10 +6,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import java.time.Instant
 
-/**
- * AIS query by latitude/longitude rectangle. Convention: `[[minLat, minLon], [maxLat, maxLon]]`
- * matching the aisstream.io wire format. Supports antimeridian-crossing queries.
- */
 data class AisBoundingBoxQuery(
   val minLat: Double,
   val minLon: Double,
@@ -39,10 +35,8 @@ data class AisBoundingBoxQuery(
   }
 }
 
-/** Backwards-compatible alias for the old `BoundingBox` shape. */
 typealias BoundingBox = AisBoundingBoxQuery
 
-/** Normalized vessel snapshot, merged across PositionReport + ShipStaticData. */
 data class Vessel(
   val mmsi: Long,
   val name: String?,
@@ -59,10 +53,6 @@ data class Vessel(
   val updatedAtMs: Long,
 )
 
-/**
- * Canonical AIS report — one observation of a single vessel after sentinel-value
- * filtering. The store merges successive reports for the same MMSI.
- */
 data class AisReport(
   val mmsi: Long,
   val name: String? = null,

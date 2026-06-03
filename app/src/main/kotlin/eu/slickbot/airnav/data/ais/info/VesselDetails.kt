@@ -1,6 +1,5 @@
 package eu.slickbot.airnav.data.ais.info
 
-/** Normalized vessel enrichment data shown in the detail sheet. */
 data class VesselDetails(
   val name: String? = null,
   val callsign: String? = null,
@@ -12,19 +11,14 @@ data class VesselDetails(
   val beamMeters: Double? = null,
   val draughtMeters: Double? = null,
   val photoUrls: List<String> = emptyList(),
-  val sourceUrl: String? = null,
   val infoLinks: List<VesselInfoLink> = emptyList(),
 ) {
-  /** Backwards-compatible single-photo accessor — returns the first photo, if any. */
-  val photoUrl: String? get() = photoUrls.firstOrNull()
-
   fun hasMeaningfulData(): Boolean {
     return name != null || shipType != null || photoUrls.isNotEmpty() ||
       buildYear != null || grossTonnage != null || lengthMeters != null
   }
 }
 
-/** Merges two responses, preferring `primary`'s non-null fields. Photos and links concatenate. */
 internal fun merge(primary: VesselDetails?, fallback: VesselDetails?): VesselDetails? {
   if (primary == null) return fallback
   if (fallback == null) return primary
@@ -39,15 +33,10 @@ internal fun merge(primary: VesselDetails?, fallback: VesselDetails?): VesselDet
     beamMeters = primary.beamMeters ?: fallback.beamMeters,
     draughtMeters = primary.draughtMeters ?: fallback.draughtMeters,
     photoUrls = (primary.photoUrls + fallback.photoUrls).distinct(),
-    sourceUrl = primary.sourceUrl ?: fallback.sourceUrl,
     infoLinks = (primary.infoLinks + fallback.infoLinks).distinctBy { it.url },
   )
 }
 
-/**
- * Legacy single-`photoUrl` factory used by [VesselFinderParser] /
- * [MyShipTrackingParser], which predate [VesselDetails.photoUrls].
- */
 internal fun VesselDetails(
   name: String? = null,
   callsign: String? = null,
@@ -59,7 +48,6 @@ internal fun VesselDetails(
   beamMeters: Double? = null,
   draughtMeters: Double? = null,
   photoUrl: String?,
-  sourceUrl: String? = null,
 ): VesselDetails {
   return VesselDetails(
     name = name,
@@ -72,6 +60,5 @@ internal fun VesselDetails(
     beamMeters = beamMeters,
     draughtMeters = draughtMeters,
     photoUrls = listOfNotNull(photoUrl?.takeIf { it.isNotBlank() }),
-    sourceUrl = sourceUrl,
   )
 }

@@ -6,9 +6,6 @@ import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 
-/**
- * MMSI-keyed store of merged [AisReport]s with TTL pruning and a hard LRU cap.
- */
 class AisReportStore(
   private val entryTtl: Duration,
   private val snapshotMinInterval: Duration,
@@ -47,14 +44,11 @@ class AisReportStore(
   fun upsert(report: AisReport, now: Instant = Instant.now(clock)) {
     synchronized(lock) {
       val previous = reportsByMmsi[report.mmsi]?.report
-      val merged = if (previous == null) report else merge(previous, report)
-      val isNew = previous == null
-      if (isNew) {
+      if (previous == null) {
         membershipVersion += 1
-        if (reportsByMmsi.size >= maxEntries) {
-          evictOldest()
-        }
+        if (reportsByMmsi.size >= maxEntries) evictOldest()
       }
+      val merged = if (previous == null) report else merge(previous, report)
       reportsByMmsi.remove(report.mmsi)
       reportsByMmsi[report.mmsi] = Entry(merged, now)
       lastTranslatedAt = now
@@ -65,16 +59,11 @@ class AisReportStore(
   fun snapshot(now: Instant = Instant.now(clock)): AisSnapshot {
     return synchronized(lock) {
       pruneStale(now)
-      val cacheAge = Duration.between(lastMaterializedAt, now)
       val shouldRefresh = cachedSnapshot.capturedAt == Instant.EPOCH
-        || cacheAge >= snapshotMinInterval
+        || Duration.between(lastMaterializedAt, now) >= snapshotMinInterval
         || lastMaterializedMembership != membershipVersion
-        || cachedSnapshot.reports.size != reportsByMmsi.size
       if (shouldRefresh) {
-        cachedSnapshot = AisSnapshot(
-          capturedAt = now,
-          reports = reportsByMmsi.values.map { it.report },
-        )
+        cachedSnapshot = AisSnapshot(capturedAt = now, reports = reportsByMmsi.values.map { it.report })
         lastMaterializedAt = now
         lastMaterializedMembership = membershipVersion
       }
@@ -114,11 +103,7 @@ class AisReportStore(
     val cutoff = now.minus(entryTtl)
     val it = reportsByMmsi.entries.iterator()
     while (it.hasNext()) {
-      val e = it.next()
-      if (e.value.ingestedAt <= cutoff) {
-        it.remove()
-        membershipVersion += 1
-      }
+      if (it.next().value.ingestedAt <= cutoff) { it.remove(); membershipVersion += 1 }
     }
   }
 

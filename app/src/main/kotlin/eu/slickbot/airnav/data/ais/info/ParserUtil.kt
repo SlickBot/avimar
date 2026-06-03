@@ -1,6 +1,5 @@
 package eu.slickbot.airnav.data.ais.info
 
-/** Shared regex helpers used by both VesselFinder and MyShipTracking parsers. */
 internal object ParserUtil {
 
   fun buildYear(raw: String?): Int? {
@@ -14,10 +13,6 @@ internal object ParserUtil {
     return raw.replace(Regex("[^\\d]"), "").toIntOrNull()
   }
 
-  /**
-   * Parses "294 x 32 m" / "294 × 32" / "294 / 32 m" into the length or beam.
-   * Falls back to a single decimal value when no separator is present.
-   */
   fun dimension(raw: String?, isLength: Boolean): Double? {
     if (raw.isNullOrBlank()) return null
     val pair = Regex("([\\d.]+)\\s*[x×/]\\s*([\\d.]+)").find(raw)

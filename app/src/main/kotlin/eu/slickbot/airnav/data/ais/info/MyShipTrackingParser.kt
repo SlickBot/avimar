@@ -3,10 +3,6 @@ package eu.slickbot.airnav.data.ais.info
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
-/**
- * Best-effort scraper for MyShipTracking vessel pages
- * (https://www.myshiptracking.com/vessels/{MMSI}).
- */
 class MyShipTrackingParser {
 
   fun parse(html: String, sourceUrl: String): VesselDetails {
@@ -31,7 +27,6 @@ class MyShipTrackingParser {
       ),
       draughtMeters = ParserUtil.decimalField(fields["Draught"] ?: fields["Draft"]),
       photoUrl = extractPhoto(doc),
-      sourceUrl = sourceUrl,
     )
   }
 

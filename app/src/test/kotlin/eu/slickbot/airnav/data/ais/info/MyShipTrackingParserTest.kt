@@ -39,7 +39,7 @@ class MyShipTrackingParserTest {
     assertEquals(294.0, result.lengthMeters!!, 0.001)
     assertEquals(32.0, result.beamMeters!!, 0.001)
     assertEquals(11.8, result.draughtMeters!!, 0.001)
-    assertNotNull(result.photoUrl)
+    assertNotNull(result.photoUrls.firstOrNull())
   }
 
   @Test

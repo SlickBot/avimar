@@ -15,23 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * Standardises the chrome around the MapLibre view: every overlay gets the
- * right system-inset padding + a consistent 12dp content padding without each
- * call site re-deriving it.
- *
- * - [topBar] expands the screen width below the status bar and stacks children
- *   in a Column (8dp between rows).
- * - [bottomStart] stacks children bottom-up so things rendered later appear
- *   higher (e.g. a legend popout above its toggle).
- * - [bottomCenter] holds a single overlay centered along the bottom edge
- *   (e.g. the status chip between the FAB and the side controls).
- * - [bottomEnd] stacks children bottom-up in the bottom-right corner so things
- *   rendered later appear higher (e.g. a legend panel above its FAB).
- * - [floating] is an escape hatch for popovers that need custom positioning
- *   relative to other overlays (e.g. a search dropdown anchored under the top
- *   bar). It exposes [BoxScope] for `align()` + manual padding.
- */
 @Composable
 fun MapOverlayScaffold(
   modifier: Modifier = Modifier,
@@ -62,27 +45,35 @@ fun MapOverlayScaffold(
         .padding(bottom = OVERLAY_PAD + 2.dp),
     ) { bottomCenter() }
 
-    Column(
-      modifier = Modifier
-        .align(Alignment.BottomStart)
-        .navigationBarsPadding()
-        .padding(start = OVERLAY_PAD, bottom = OVERLAY_PAD + 2.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
+    BottomColumn(
+      modifier = Modifier.align(Alignment.BottomStart).padding(start = OVERLAY_PAD),
       content = bottomStart,
     )
 
-    Column(
-      modifier = Modifier
-        .align(Alignment.BottomEnd)
-        .navigationBarsPadding()
-        .padding(end = OVERLAY_PAD, bottom = OVERLAY_PAD + 2.dp),
+    BottomColumn(
+      modifier = Modifier.align(Alignment.BottomEnd).padding(end = OVERLAY_PAD),
       horizontalAlignment = Alignment.End,
-      verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
       content = bottomEnd,
     )
 
     floating()
   }
+}
+
+@Composable
+private fun BottomColumn(
+  modifier: Modifier = Modifier,
+  horizontalAlignment: Alignment.Horizontal = Alignment.Start,
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  Column(
+    modifier = modifier
+      .navigationBarsPadding()
+      .padding(bottom = OVERLAY_PAD + 2.dp),
+    horizontalAlignment = horizontalAlignment,
+    verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
+    content = content,
+  )
 }
 
 private val OVERLAY_PAD = 12.dp

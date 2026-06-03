@@ -3,7 +3,6 @@ package eu.slickbot.airnav.data.adsb.info
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAircraft
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAircraftResponse
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAircraftResponseBody
-import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAirline
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbAirport
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbFlightRoute
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryRegistrationResponse
@@ -135,7 +134,6 @@ class AircraftInfoProviderTest {
     val route = AdsbDbFlightRoute(
       callsign = "RYR123",
       callsignIcao = "RYR",
-      airline = AdsbDbAirline(name = "Ryanair", icao = "RYR"),
       origin = AdsbDbAirport(name = "Dublin", icao = "EIDW"),
       destination = AdsbDbAirport(name = "Stansted", icao = "EGSS"),
     )
@@ -147,8 +145,7 @@ class AircraftInfoProviderTest {
     )!!
 
     assertNotNull(r.flightRoute)
-    assertEquals("Ryanair", r.flightRoute!!.airline?.name)
-    assertEquals("EIDW", r.flightRoute.origin?.icao)
+    assertEquals("EIDW", r.flightRoute!!.origin?.icao)
     assertEquals("EGSS", r.flightRoute.destination?.icao)
   }
 

@@ -13,12 +13,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
-/**
- * Robolectric round-trip for the ADS-B fetch settings — guards against DataStore
- * key/type mistakes (the kind of typed-mapping bug that silently broke parsing
- * for adsb.fi). Runs on the JVM.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33], application = Application::class)
 class SettingsRepositoryRobolectricTest {
@@ -33,8 +30,8 @@ class SettingsRepositoryRobolectricTest {
   @Test
   fun `adsb fetch settings persist and read back`() = runBlocking {
     // Defaults.
-    assertEquals(0L, repo.adsbPollMs.first())
-    assertEquals(15, repo.adsbTimeoutSec.first())
+    assertEquals(Duration.ZERO, repo.adsbPollInterval.first())
+    assertEquals(15.seconds, repo.requestTimeout.first())
     assertEquals(1.0f, repo.markerScale.first(), 0.0f)
     assertNull(repo.minAltitudeM.first())
     assertNull(repo.maxAltitudeM.first())
@@ -42,11 +39,11 @@ class SettingsRepositoryRobolectricTest {
     assertTrue(repo.hiddenAircraftCategories.first().isEmpty())
 
     // Round-trips.
-    repo.setAdsbPollMs(5_000L)
-    assertEquals(5_000L, repo.adsbPollMs.first())
+    repo.setAdsbPollInterval(5.seconds)
+    assertEquals(5.seconds, repo.adsbPollInterval.first())
 
-    repo.setAdsbTimeoutSec(30)
-    assertEquals(30, repo.adsbTimeoutSec.first())
+    repo.setRequestTimeout(30.seconds)
+    assertEquals(30.seconds, repo.requestTimeout.first())
 
     repo.setMarkerScale(1.5f)
     assertEquals(1.5f, repo.markerScale.first(), 0.0f)
@@ -65,9 +62,9 @@ class SettingsRepositoryRobolectricTest {
 
   @Test
   fun `timeout is clamped to a sane range`() = runBlocking {
-    repo.setAdsbTimeoutSec(9999)
-    assertEquals(120, repo.adsbTimeoutSec.first())
-    repo.setAdsbTimeoutSec(0)
-    assertEquals(1, repo.adsbTimeoutSec.first())
+    repo.setRequestTimeout(9999.seconds)
+    assertEquals(120.seconds, repo.requestTimeout.first())
+    repo.setRequestTimeout(0.seconds)
+    assertEquals(1.seconds, repo.requestTimeout.first())
   }
 }

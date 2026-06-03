@@ -6,9 +6,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/**
- * Parses an airhistory.net /marks-all/{registration} page.
- */
 class AirHistoryParser {
 
   private val dateFormats = listOf(
@@ -60,19 +57,14 @@ class AirHistoryParser {
   private fun parsePhotoBlock(block: Element, baseUrl: String): AirHistoryPhoto? {
     val a = block.selectFirst("a[href^=/photo/]") ?: return null
     val pageUrl = a.absUrl("href").ifBlank { resolveUrl(baseUrl, a.attr("href")) }
-
     val img = block.selectFirst("img[src]")
     val fields = extractCaptionThumbFields(block)
     val dateText = fields["Photo Date:"]
     val dateIso = parseToIso(dateText) ?: extractIsoFromHref(block)
-
     val city = fields["City / Airport:"]
     val region = fields["Region / Country:"] ?: fields["Country:"]
     val location = listOfNotNull(city, region).joinToString(", ").ifBlank { null }
-
-    val caption = block.selectFirst("div.caption-thumb.normal_text")
-      ?.text()?.trim()?.takeIf { it.isNotBlank() }
-
+    val caption = block.selectFirst("div.caption-thumb.normal_text")?.text()?.trim()?.takeIf { it.isNotBlank() }
     val imgUrl = img?.absUrl("src")?.ifBlank { resolveUrl(baseUrl, img.attr("src")) }
     return AirHistoryPhoto(
       pageUrl = pageUrl,
@@ -97,9 +89,7 @@ class AirHistoryParser {
       if (tds.size < 2) return@forEach
       val key = tds[0].text().trim()
       val value = tds[1].text().trim()
-      if (key.isNotBlank() && value.isNotBlank()) {
-        out[key] = value
-      }
+      if (key.isNotBlank() && value.isNotBlank()) out[key] = value
     }
     return out
   }
@@ -107,16 +97,13 @@ class AirHistoryParser {
   private fun parseToIso(dateText: String?): String? {
     if (dateText.isNullOrBlank()) return null
     val cleaned = dateText.trim()
-    for (fmt in dateFormats) {
-      val parsed = runCatching { LocalDate.parse(cleaned, fmt) }.getOrNull()
-      if (parsed != null) return parsed.toString()
+    return dateFormats.firstNotNullOfOrNull { fmt ->
+      runCatching { LocalDate.parse(cleaned, fmt).toString() }.getOrNull()
     }
-    return null
   }
 
   private fun extractIsoFromHref(block: Element): String? {
-    val match = Regex("date_taken=(\\d{4}-\\d{2}-\\d{2})").find(block.outerHtml()) ?: return null
-    return match.groupValues[1]
+    return Regex("date_taken=(\\d{4}-\\d{2}-\\d{2})").find(block.outerHtml())?.groupValues?.get(1)
   }
 
   private fun resolveUrl(baseUrl: String, url: String): String {

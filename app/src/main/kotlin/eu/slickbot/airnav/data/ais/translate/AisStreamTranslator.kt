@@ -11,12 +11,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import java.time.Instant
 
-/**
- * Maps an AisStream envelope into a normalized [AisReport].
- */
 internal object AisStreamTranslator {
 
-  // ITU-R M.1371 sentinel values: SOG 102.3 / COG 360.0 / heading 511 mean "not available".
   private const val MAX_VALID_SOG_KNOTS = 102.2
   private const val INVALID_COG_DEG = 360.0
   private const val INVALID_HEADING_DEG = 511
@@ -43,7 +39,6 @@ internal object AisStreamTranslator {
     val sog = position?.sog ?: classB?.sog ?: extB?.sog
     val cog = position?.cog ?: classB?.cog ?: extB?.cog
     val heading = position?.trueHeading ?: classB?.trueHeading ?: extB?.trueHeading
-    val navStatus = position?.navigationalStatus
 
     return AisReport(
       mmsi = mmsi,
@@ -52,11 +47,10 @@ internal object AisStreamTranslator {
         ?: meta.shipName?.trim()?.ifBlank { null },
       latDeg = lat,
       lonDeg = lon,
-      // Sentinel check runs in the wire unit (knots), then convert to SI.
       speedOverGroundMs = sog?.takeIf { it <= MAX_VALID_SOG_KNOTS }?.let { it * KNOTS_TO_MS },
       courseOverGroundDeg = cog?.takeIf { it < INVALID_COG_DEG },
       headingDeg = heading?.takeIf { it != INVALID_HEADING_DEG },
-      navigationalStatus = navStatus,
+      navigationalStatus = position?.navigationalStatus,
       shipType = staticData?.type ?: extB?.type,
       destination = staticData?.destination?.trim()?.ifBlank { null },
       callsign = staticData?.callSign?.trim()?.ifBlank { null },
@@ -70,19 +64,8 @@ internal object AisStreamTranslator {
     return runCatching { json.decodeFromJsonElement<T>(inner) }.getOrNull()
   }
 
-  /**
-   * AisStream emits Go-format strings like "2026-05-28 12:34:56 +0000 UTC".
-   * Truncate to the first 19 characters, swap the space for 'T', append 'Z'.
-   */
   internal fun parseTimeUtc(raw: String?): Instant? {
-    if (raw.isNullOrBlank() || raw.length < 19) {
-      return null
-    }
-    return try {
-      val dateTime = raw.substring(0, 19).replace(" ", "T")
-      Instant.parse("${dateTime}Z")
-    } catch (_: Exception) {
-      null
-    }
+    if (raw.isNullOrBlank() || raw.length < 19) return null
+    return runCatching { Instant.parse(raw.substring(0, 19).replace(" ", "T") + "Z") }.getOrNull()
   }
 }

@@ -11,15 +11,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 private const val FILE = "airnav_secure"
 private const val KEY_AIS = "ais_api_key"
 
-/**
- * Encrypted store for the AIS API key.
- *
- * The value is encrypted by [StringCipher] (Android Keystore-backed by default)
- * before it touches disk, so the backing SharedPreferences file only ever holds
- * ciphertext. A read that fails to decrypt — e.g. after a backup/restore rotates
- * the Keystore key out from under the stored blob — surfaces as null rather than
- * crashing the app.
- */
 class SecureKeyStore(
   context: Context,
   private val cipher: StringCipher = KeystoreStringCipher(),

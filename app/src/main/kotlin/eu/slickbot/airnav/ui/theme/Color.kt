@@ -26,10 +26,8 @@ val OnSurfaceVariantLight = Color(0xFF45454F)
 val AccentBlue = Color(0xFF6EC8FF)     // ADS-B / sky
 val AccentAmber = Color(0xFFFFB74D)    // alerts / squawk
 val AccentTeal = Color(0xFF4DD0E1)     // AIS / sea
-val AccentRose = Color(0xFFFF8A95)
-val AccentLavender = Color(0xFFBFA7FF)
 
-// Accents (deepened for light surfaces, where the bright variants wash out)
+// Accents
 val AccentBlueLight = Color(0xFF00629E)
 val AccentTealLight = Color(0xFF006972)
 val AccentAmberLight = Color(0xFF7A5300)
