@@ -38,6 +38,7 @@ fun MapLibreMapView(
   onAircraftClick: (String) -> Unit,
   onVesselClick: (Long) -> Unit,
   onReady: (MapController) -> Unit,
+  onUserGesture: () -> Unit,
 ) {
   val context = LocalContext.current
   val mapView = remember { MapView(context).apply { onCreate(null) } }
@@ -52,7 +53,9 @@ fun MapLibreMapView(
   LaunchedEffect(mapLibreMap, topInset, bottomInset) {
     val map = mapLibreMap ?: return@LaunchedEffect
     val pad = with(density) { 8.dp.roundToPx() }
-    map.uiSettings.setCompassMargins(pad, topInset + pad, pad, pad)
+    val compassTop = topInset + with(density) { 72.dp.roundToPx() }
+    val compassEnd = with(density) { 16.dp.roundToPx() }
+    map.uiSettings.setCompassMargins(pad, compassTop, compassEnd, pad)
     map.uiSettings.setLogoMargins(pad, pad, pad, bottomInset + pad)
     map.uiSettings.setAttributionMargins(pad, pad, pad, bottomInset + pad)
   }
@@ -91,6 +94,13 @@ fun MapLibreMapView(
       map.addOnCameraIdleListener { emitViewport(map, onViewportChanged) }
       map.addOnMapClickListener { latLng ->
         handleClick(map, latLng, onAircraftClick, onVesselClick)
+      }
+      map.addOnCameraMoveStartedListener { reason ->
+        // Only a user gesture should disengage follow; our own animateCamera
+        // re-centers report a non-gesture reason and are ignored.
+        if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
+          onUserGesture()
+        }
       }
       onReady(controller)
     }

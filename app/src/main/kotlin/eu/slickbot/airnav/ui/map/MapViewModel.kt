@@ -38,6 +38,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.math.ceil
@@ -237,24 +238,32 @@ class MapViewModel(
   private val _following = MutableStateFlow(false)
   val isFollowing: StateFlow<Boolean> = _following.asStateFlow()
 
-  val onboardingSeen: StateFlow<Boolean> = settings.onboardingSeen.stateIn(
-    scope = viewModelScope,
-    started = SharingStarted.Eagerly,
-    initialValue = true,
-  )
-
   val selection: StateFlow<MapSelection?> = combine(
     _selectedAircraftHex,
     _selectedVesselMmsi,
     _aircraft,
     aisRepo.vessels,
   ) { hex, mmsi, planes, ships ->
-    when {
+    val active = hex != null || mmsi != null
+    val resolved = when {
       hex != null -> planes.firstOrNull { it.hex == hex }?.let { MapSelection.Plane(it) }
       mmsi != null -> ships.firstOrNull { it.mmsi == mmsi }?.let { MapSelection.Ship(it) }
       else -> null
     }
-  }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+    active to resolved
+  }
+    // Sticky selection: once a vehicle is picked, hold its last-known snapshot when
+    // it drops out of the fetched set (panned away) instead of going null. Panning
+    // therefore neither closes nor reopens the sheet; only an explicit deselect
+    // (both ids cleared) does. Fresh data replaces the snapshot when it returns.
+    .runningFold<Pair<Boolean, MapSelection?>, MapSelection?>(null) { prev, (active, resolved) ->
+      when {
+        !active -> null
+        resolved != null -> resolved
+        else -> prev
+      }
+    }
+    .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
   val recentEntities: StateFlow<List<RecentEntity>> = searchHistory.recentEntities.stateIn(
     scope = viewModelScope,
@@ -262,44 +271,36 @@ class MapViewModel(
     initialValue = emptyList(),
   )
 
-  val planeEnrichment: StateFlow<AircraftInfo?> = _selectedAircraftHex
+  val planeEnrichment: StateFlow<Loadable<AircraftInfo>> = _selectedAircraftHex
     .flatMapLatest { hex ->
       if (hex == null) {
-        flowOf<AircraftInfo?>(null)
+        flowOf(Loadable.Ready<AircraftInfo>(null))
       } else {
-        flow {
-          emit(null)
-          val current = _aircraft.value.firstOrNull { it.hex == hex }
-          emit(
-            runCatching {
-              aircraftInfoProvider.fetch(
-                icao = hex,
-                callsign = current?.callsign,
-                registration = current?.registration,
-                typeDesignator = current?.type,
-                operator = null,
-                description = null,
-              )
-            }.getOrNull(),
+        val current = _aircraft.value.firstOrNull { it.hex == hex }
+        loadableFetch {
+          aircraftInfoProvider.fetch(
+            icao = hex,
+            callsign = current?.callsign,
+            registration = current?.registration,
+            typeDesignator = current?.type,
+            operator = null,
+            description = null,
           )
         }
       }
     }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Loadable.Loading)
 
-  val shipEnrichment: StateFlow<VesselDetails?> = _selectedVesselMmsi
+  val shipEnrichment: StateFlow<Loadable<VesselDetails>> = _selectedVesselMmsi
     .flatMapLatest { mmsi ->
       if (mmsi == null) {
-        flowOf<VesselDetails?>(null)
+        flowOf(Loadable.Ready<VesselDetails>(null))
       } else {
         val imo = aisRepo.vessels.value.firstOrNull { it.mmsi == mmsi }?.imo
-        flow {
-          emit(null)
-          emit(runCatching { vesselEnricher.lookup(mmsi, imo) }.getOrNull())
-        }
+        loadableFetch { vesselEnricher.lookup(mmsi, imo) }
       }
     }
-    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Loadable.Loading)
 
   private val _centerCommands = MutableSharedFlow<CenterCommand>(
     extraBufferCapacity = 4,
@@ -391,14 +392,15 @@ class MapViewModel(
   fun selectAircraft(hex: String) {
     _selectedVesselMmsi.value = null
     _selectedAircraftHex.value = hex
-    _following.value = false
+    // Selecting a vehicle starts following it; a manual pan, close, or the chip stops it.
+    _following.value = true
     _aircraft.value.firstOrNull { it.hex == hex }?.let { recordRecent(RecentEntity.fromAircraft(it)) }
   }
 
   fun selectVessel(mmsi: Long) {
     _selectedAircraftHex.value = null
     _selectedVesselMmsi.value = mmsi
-    _following.value = false
+    _following.value = true
     aisRepo.vessels.value.firstOrNull { it.mmsi == mmsi }?.let { recordRecent(RecentEntity.fromVessel(it)) }
   }
 
@@ -420,6 +422,13 @@ class MapViewModel(
     _following.value = on
   }
 
+  /** A manual map gesture takes camera control, so it disengages follow. */
+  fun onMapGesture() {
+    if (_following.value) {
+      _following.value = false
+    }
+  }
+
   fun centerOnUser() {
     val fix: LatLon = locationProvider.lastKnown() ?: return
     _centerCommands.tryEmit(CenterCommand(fix.lat, fix.lon, zoom = 9.0))
@@ -429,7 +438,9 @@ class MapViewModel(
     _centerCommands.tryEmit(CenterCommand(lat, lon, zoom))
   }
 
-  fun hasLocationPermission(): Boolean = locationProvider.hasPermission()
+  fun hasLocationPermission(): Boolean {
+    return locationProvider.hasPermission()
+  }
 
   private suspend fun fetchAdsb(provider: AdsbProvider, viewport: Viewport) {
     val radius = ceil(viewport.radiusNm).toInt().coerceAtLeast(1)

@@ -36,10 +36,6 @@ class SettingsRepository(private val context: Context) {
     prefs[KEY_TRAILS_ENABLED] ?: true
   }
 
-  val onboardingSeen: Flow<Boolean> = store.data.map { prefs ->
-    prefs[KEY_ONBOARDING_SEEN] ?: false
-  }
-
   val aviationVisible: Flow<Boolean> = store.data.map { prefs ->
     prefs[KEY_AVIATION_VISIBLE] ?: true
   }
@@ -148,7 +144,6 @@ class SettingsRepository(private val context: Context) {
     val KEY_TILE_STYLE = stringPreferencesKey("tile_style")
     val KEY_AIS_ENABLED = booleanPreferencesKey("ais_enabled")
     val KEY_TRAILS_ENABLED = booleanPreferencesKey("trails_enabled")
-    val KEY_ONBOARDING_SEEN = booleanPreferencesKey("onboarding_seen")
     val KEY_AVIATION_VISIBLE = booleanPreferencesKey("aviation_visible")
     val KEY_MARITIME_VISIBLE = booleanPreferencesKey("maritime_visible")
     val KEY_ADSB_POLL_MS = longPreferencesKey("adsb_poll_ms")

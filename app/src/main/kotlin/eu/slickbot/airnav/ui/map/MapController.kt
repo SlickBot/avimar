@@ -299,20 +299,25 @@ class MapController(private val map: MapLibreMap) {
     map.animateCamera(CameraUpdateFactory.newCameraPosition(builder.build()))
   }
 
-  /** Clears any camera padding left over from follow mode (re-centers on the
-   *  current target with zero padding) so the map isn't offset after the sheet
-   *  closes. */
-  fun resetCameraPadding() {
+  /** Animates to [bottomPaddingPx] of bottom camera padding while keeping the current
+   *  center and zoom. Eases the map for the detail sheet without moving where it looks
+   *  (used when the sheet opens/closes and we are not following a vehicle). */
+  fun setCameraPadding(bottomPaddingPx: Double) {
     val target = map.cameraPosition.target ?: return
-    map.moveCamera(
+    map.animateCamera(
       CameraUpdateFactory.newCameraPosition(
         CameraPosition.Builder()
           .target(target)
           .zoom(map.cameraPosition.zoom)
-          .padding(0.0, 0.0, 0.0, 0.0)
+          .padding(0.0, 0.0, 0.0, bottomPaddingPx)
           .build(),
       ),
     )
+  }
+
+  /** Clears leftover detail-sheet padding, keeping the current center. */
+  fun resetCameraPadding() {
+    setCameraPadding(0.0)
   }
 
   fun zoomIn() {

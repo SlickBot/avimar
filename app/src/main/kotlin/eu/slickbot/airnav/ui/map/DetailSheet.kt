@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,20 +26,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.DirectionsBoat
 import androidx.compose.material.icons.filled.Flight
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +61,6 @@ import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselInfoLink
 import eu.slickbot.airnav.ui.common.PhotoViewer
 import eu.slickbot.airnav.ui.theme.AirnavAccents
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private data class LabeledLink(val label: String, val url: String)
@@ -71,71 +68,93 @@ private data class LabeledLink(val label: String, val url: String)
 private fun AircraftInfoLink.asLabeled() = LabeledLink(label, url)
 private fun VesselInfoLink.asLabeled() = LabeledLink(label, url)
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DetailSheet(
+fun DetailSheetContent(
   selection: MapSelection,
   following: Boolean,
-  planeEnrichment: AircraftInfo?,
-  shipEnrichment: VesselDetails?,
+  planeEnrichment: Loadable<AircraftInfo>,
+  shipEnrichment: Loadable<VesselDetails>,
   onFollowChange: (Boolean) -> Unit,
-  onDismiss: () -> Unit,
+  modifier: Modifier = Modifier,
 ) {
-  val state = rememberModalBottomSheetState(skipPartiallyExpanded = false)
-  val scope = rememberCoroutineScope()
-  val onFollow: (Boolean) -> Unit = { enabled ->
-    onFollowChange(enabled)
-    if (enabled) scope.launch { state.partialExpand() }
-  }
-  ModalBottomSheet(
-    onDismissRequest = onDismiss,
-    sheetState = state,
-    scrimColor = androidx.compose.ui.graphics.Color.Transparent,
+  Column(
+    modifier = modifier
+      .fillMaxWidth()
+      .padding(horizontal = 20.dp)
+      .padding(bottom = 8.dp),
+    verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    Column(
-      modifier = Modifier
-        .fillMaxWidth()
-        .verticalScroll(rememberScrollState())
-        .padding(horizontal = 20.dp, vertical = 8.dp),
-      verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-      Header(selection, following, onFollow)
-      when (selection) {
-        is MapSelection.Plane -> {
-          planeEnrichment?.flightRoute?.let { RouteRow(it) }
-          PhotoGallery(
-            planeEnrichment?.photoUrls.orEmpty() + planeEnrichment?.modelPhotoUrls.orEmpty(),
-            contentDescription = "Aircraft photo",
-          )
-          Section("Live ADS-B") { PlaneLiveRows(selection.aircraft) }
-          planeEnrichment?.let { info ->
-            if (info.hasAircraftRows()) {
-              Section("Aircraft") { PlaneInfoRows(info) }
-            }
-            info.specs?.let { specs ->
-              if (specs.hasAny()) {
-                Section("Specifications") { SpecRows(specs) }
-              }
-            }
-            if (info.infoLinks.isNotEmpty()) {
-              Section("Links") { TrackingLinks(info.infoLinks) }
-            }
-          }
+    Header(selection, following, onFollowChange)
+    val loading = when (selection) {
+      is MapSelection.Plane -> planeEnrichment is Loadable.Loading
+      is MapSelection.Ship -> shipEnrichment is Loadable.Loading
+    }
+    if (loading) {
+      LoaderBody()
+    } else {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        when (selection) {
+          is MapSelection.Plane ->
+            PlaneBody(selection.aircraft, (planeEnrichment as Loadable.Ready).value)
+          is MapSelection.Ship ->
+            ShipBody(selection.vessel, (shipEnrichment as Loadable.Ready).value)
         }
-        is MapSelection.Ship -> {
-          PhotoGallery(shipEnrichment?.photoUrls.orEmpty(), contentDescription = "Vessel photo")
-          Section("Live AIS") { ShipDetails(selection.vessel) }
-          shipEnrichment?.let { d ->
-            if (d.hasMeaningfulData() || d.flag != null) {
-              Section("Vessel") { ShipEnrichmentRows(d) }
-            }
-            if (d.infoLinks.isNotEmpty()) {
-              Section("Links") { TrackingLinks(d.infoLinks) }
-            }
-          }
-        }
+        Spacer(modifier = Modifier.size(8.dp))
       }
-      Spacer(modifier = Modifier.size(8.dp))
+    }
+  }
+}
+
+@Composable
+private fun LoaderBody() {
+  Box(
+    modifier = Modifier
+      .fillMaxWidth()
+      .heightIn(min = 160.dp),
+    contentAlignment = Alignment.Center,
+  ) {
+    CircularProgressIndicator()
+  }
+}
+
+@Composable
+private fun PlaneBody(aircraft: Aircraft, info: AircraftInfo?) {
+  info?.flightRoute?.let { RouteRow(it) }
+  PhotoGallery(
+    info?.photoUrls.orEmpty() + info?.modelPhotoUrls.orEmpty(),
+    contentDescription = "Aircraft photo",
+  )
+  Section("Live ADS-B") { PlaneLiveRows(aircraft) }
+  info?.let {
+    if (it.hasAircraftRows()) {
+      Section("Aircraft") { PlaneInfoRows(it) }
+    }
+    it.specs?.let { specs ->
+      if (specs.hasAny()) {
+        Section("Specifications") { SpecRows(specs) }
+      }
+    }
+    if (it.infoLinks.isNotEmpty()) {
+      Section("Links") { TrackingLinks(it.infoLinks) }
+    }
+  }
+}
+
+@Composable
+private fun ShipBody(vessel: Vessel, details: VesselDetails?) {
+  PhotoGallery(details?.photoUrls.orEmpty(), contentDescription = "Vessel photo")
+  Section("Live AIS") { ShipDetails(vessel) }
+  details?.let { d ->
+    if (d.hasMeaningfulData() || d.flag != null) {
+      Section("Vessel") { ShipEnrichmentRows(d) }
+    }
+    if (d.infoLinks.isNotEmpty()) {
+      Section("Links") { TrackingLinks(d.infoLinks) }
     }
   }
 }
