@@ -1,5 +1,6 @@
 package eu.slickbot.airnav.ui.map
 
+import android.graphics.PointF
 import android.graphics.RectF
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBars
@@ -24,6 +25,8 @@ import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
+import org.maplibre.geojson.Point
+import kotlin.math.hypot
 
 /**
  * Native MapLibre map, the replacement for the crashing Leaflet/WebView map.
@@ -129,6 +132,8 @@ private fun emitViewport(map: MapLibreMap, onViewportChanged: (Viewport) -> Unit
   )
 }
 
+private const val TAP_RADIUS_PX = 30f
+
 private fun handleClick(
   map: MapLibreMap,
   latLng: LatLng,
@@ -136,21 +141,48 @@ private fun handleClick(
   onVesselClick: (Long) -> Unit,
 ): Boolean {
   val screen = map.projection.toScreenLocation(latLng)
-  val pad = 22f
-  val rect = RectF(screen.x - pad, screen.y - pad, screen.x + pad, screen.y + pad)
+  val rect = RectF(
+    screen.x - TAP_RADIUS_PX,
+    screen.y - TAP_RADIUS_PX,
+    screen.x + TAP_RADIUS_PX,
+    screen.y + TAP_RADIUS_PX,
+  )
 
-  val plane = map.queryRenderedFeatures(rect, MapController.AIRCRAFT_LAYER)
-    .firstOrNull()?.getStringProperty("id")
+  val plane = nearestFeatureId(map, screen, rect, MapController.AIRCRAFT_LAYER)
   if (plane != null) {
     onAircraftClick(plane)
     return true
   }
 
-  val ship = map.queryRenderedFeatures(rect, MapController.VESSEL_LAYER)
-    .firstOrNull()?.getStringProperty("id")?.toLongOrNull()
+  val ship = nearestFeatureId(map, screen, rect, MapController.VESSEL_LAYER)?.toLongOrNull()
   if (ship != null) {
     onVesselClick(ship)
     return true
   }
   return false
+}
+
+/**
+ * Picks the feature whose marker point is closest to the tap, within [TAP_RADIUS_PX].
+ * A plain layer hit-test matches the whole symbol (icon + the label rendered below it),
+ * which biases selection downward; measuring to the point centers the hit on the icon
+ * and resolves which marker wins when several are nearby.
+ */
+private fun nearestFeatureId(
+  map: MapLibreMap,
+  tap: PointF,
+  rect: RectF,
+  layer: String,
+): String? {
+  return map.queryRenderedFeatures(rect, layer)
+    .mapNotNull { feature ->
+      val id = feature.getStringProperty("id") ?: return@mapNotNull null
+      val point = feature.geometry() as? Point ?: return@mapNotNull null
+      val markerScreen = map.projection.toScreenLocation(LatLng(point.latitude(), point.longitude()))
+      val distance = hypot((markerScreen.x - tap.x).toDouble(), (markerScreen.y - tap.y).toDouble())
+      id to distance
+    }
+    .filter { it.second <= TAP_RADIUS_PX }
+    .minByOrNull { it.second }
+    ?.first
 }
