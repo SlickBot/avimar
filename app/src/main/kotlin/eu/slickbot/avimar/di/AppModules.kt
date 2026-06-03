@@ -1,5 +1,6 @@
 package eu.slickbot.avimar.di
 
+import eu.slickbot.avimar.R
 import eu.slickbot.avimar.data.adsb.AdsbRepository
 import eu.slickbot.avimar.data.adsb.info.adsbdb.AdsbDbClient
 import eu.slickbot.avimar.data.adsb.info.airhistory.AirHistoryClient
@@ -57,7 +58,11 @@ val dataModule = module {
   single { AdsbLolProvider(fetcher = get(), json = get(), minInterval = Duration.ZERO) }
   single { AirplanesLiveProvider(fetcher = get(), json = get(), minInterval = Duration.ZERO) }
 
-  single { TypeDesignatorCatalog(get()) }
+  single {
+    TypeDesignatorCatalog(get()) {
+      androidContext().resources.openRawResource(R.raw.type_designators)
+    }
+  }
   single { IcaoDescriptionCodeDecoder() }
   single { Doc8643Parser() }
   single { Doc8643Client(fetcher = get(), parser = get()) }

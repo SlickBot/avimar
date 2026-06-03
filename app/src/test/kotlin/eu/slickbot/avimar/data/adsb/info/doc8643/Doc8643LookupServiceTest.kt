@@ -1,7 +1,7 @@
 package eu.slickbot.avimar.data.adsb.info.doc8643
 
 import eu.slickbot.avimar.data.adsb.info.icaodescription.IcaoDescriptionCodeDecoder
-import eu.slickbot.avimar.data.adsb.info.typedesignation.TypeDesignatorCatalog
+import eu.slickbot.avimar.data.adsb.info.typedesignation.testTypeDesignatorCatalog
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -20,7 +20,7 @@ class Doc8643LookupServiceTest {
 
   private fun service(): Doc8643LookupService {
     return Doc8643LookupService(
-      catalog = TypeDesignatorCatalog(json),
+      catalog = testTypeDesignatorCatalog(json),
       decoder = IcaoDescriptionCodeDecoder(),
       cacheTtl = Duration.ofMinutes(30),
       negativeCacheTtl = Duration.ofMinutes(5),

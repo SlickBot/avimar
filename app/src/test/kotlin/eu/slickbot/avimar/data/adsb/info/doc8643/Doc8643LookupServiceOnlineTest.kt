@@ -1,7 +1,7 @@
 package eu.slickbot.avimar.data.adsb.info.doc8643
 
 import eu.slickbot.avimar.data.adsb.info.icaodescription.IcaoDescriptionCodeDecoder
-import eu.slickbot.avimar.data.adsb.info.typedesignation.TypeDesignatorCatalog
+import eu.slickbot.avimar.data.adsb.info.typedesignation.testTypeDesignatorCatalog
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -11,7 +11,7 @@ import java.time.Duration
 class Doc8643LookupServiceOnlineTest {
 
   private val json = Json { ignoreUnknownKeys = true; isLenient = true; coerceInputValues = true }
-  private val catalog = TypeDesignatorCatalog(json)
+  private val catalog = testTypeDesignatorCatalog(json)
   private val decoder = IcaoDescriptionCodeDecoder()
 
   private fun service(online: (String) -> Doc8643AircraftDetailResponse?): Doc8643LookupService {

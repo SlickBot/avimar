@@ -15,7 +15,7 @@ class TypeDesignatorCatalogTest {
 
   @Test
   fun `findByDesignator returns matching entries case-insensitively`() {
-    val catalog = TypeDesignatorCatalog(json)
+    val catalog = testTypeDesignatorCatalog(json)
     val hits = catalog.findByDesignator("  b738 ")
     assertTrue("expected at least one match for B738", hits.isNotEmpty())
     assertEquals("B738", hits.first().designator)
@@ -23,14 +23,14 @@ class TypeDesignatorCatalogTest {
 
   @Test
   fun `findByDesignator returns empty for unknown`() {
-    val catalog = TypeDesignatorCatalog(json)
+    val catalog = testTypeDesignatorCatalog(json)
     val hits = catalog.findByDesignator("ZZZZZ")
     assertTrue(hits.isEmpty())
   }
 
   @Test
   fun `bundled catalog loads with thousands of entries`() {
-    val catalog = TypeDesignatorCatalog(json)
+    val catalog = testTypeDesignatorCatalog(json)
     assertTrue(
       "bundled catalog should be non-empty (got ${catalog.entries.size})",
       catalog.entries.size > 1000,
@@ -39,7 +39,7 @@ class TypeDesignatorCatalogTest {
 
   @Test
   fun `each entry has the four required fields`() {
-    val catalog = TypeDesignatorCatalog(json)
+    val catalog = testTypeDesignatorCatalog(json)
     val sample = catalog.entries.first()
     assertTrue(sample.designator.isNotBlank())
     assertTrue(sample.description.isNotBlank())

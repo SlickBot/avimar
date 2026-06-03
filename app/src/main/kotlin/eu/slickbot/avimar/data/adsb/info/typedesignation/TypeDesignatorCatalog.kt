@@ -3,6 +3,7 @@ package eu.slickbot.avimar.data.adsb.info.typedesignation
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.io.InputStream
 
 @Serializable
 data class TypeDesignatorEntry(
@@ -15,7 +16,7 @@ data class TypeDesignatorEntry(
 
 class TypeDesignatorCatalog(
   private val json: Json,
-  private val resourcePath: String = "/type_designators.json",
+  private val source: () -> InputStream,
 ) {
 
   val entries: List<TypeDesignatorEntry> by lazy { loadEntries() }
@@ -26,10 +27,7 @@ class TypeDesignatorCatalog(
   }
 
   private fun loadEntries(): List<TypeDesignatorEntry> {
-    val stream = requireNotNull(
-      TypeDesignatorCatalog::class.java.getResourceAsStream(resourcePath)
-    ) { "Missing resource $resourcePath" }
-    val body = stream.use { it.readBytes().decodeToString() }
+    val body = source().use { it.readBytes().decodeToString() }
     return json.decodeFromString(body)
   }
 }
