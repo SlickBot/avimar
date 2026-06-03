@@ -6,15 +6,6 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
-// .key holds a test AisStream API key (gitignored). Read at config time and
-// surfaced as BuildConfig.AIS_DEBUG_API_KEY in debug builds only - release is
-// always empty so the secret cannot ship.
-val aisDebugApiKey: String = rootProject.file(".key")
-  .takeIf { it.exists() }
-  ?.readText()
-  ?.trim()
-  .orEmpty()
-
 android {
   namespace = "eu.slickbot.airnav"
 
@@ -29,14 +20,9 @@ android {
     versionName = "0.1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-    buildConfigField("String", "AIS_DEBUG_API_KEY", "\"\"")
   }
 
   buildTypes {
-    debug {
-      buildConfigField("String", "AIS_DEBUG_API_KEY", "\"$aisDebugApiKey\"")
-    }
     release {
       isMinifyEnabled = false
       proguardFiles(
@@ -47,8 +33,8 @@ android {
   }
 
   compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
   }
 
   buildFeatures {
@@ -66,11 +52,17 @@ android {
     unitTests.isReturnDefaultValues = true
     unitTests.isIncludeAndroidResources = true
   }
+
+  lint {
+    // Timber is dragged in transitively by MapLibre, not used by us; ignore its
+    // bundled rule nagging android.util.Log calls.
+    disable += "LogNotTimber"
+  }
 }
 
 kotlin {
   compilerOptions {
-    jvmTarget.set(JvmTarget.JVM_17)
+    jvmTarget.set(JvmTarget.JVM_21)
     optIn.addAll(
       "kotlinx.coroutines.ExperimentalCoroutinesApi",
       "kotlinx.coroutines.FlowPreview",
@@ -115,7 +107,6 @@ dependencies {
   testImplementation(libs.androidx.test.ext.junit)
 
   androidTestImplementation(platform(libs.androidx.compose.bom))
-  androidTestImplementation(libs.androidx.test.ext.junit)
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
