@@ -10,7 +10,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -35,7 +37,19 @@ fun LegendFab(
   onToggle: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  FloatingActionButton(onClick = onToggle, modifier = modifier) {
+  FloatingActionButton(
+    onClick = onToggle,
+    modifier = modifier,
+    // Match the search bar and settings button's flat surface. Zero elevation drops the
+    // tonal overlay that would otherwise tint the surface lighter.
+    containerColor = MaterialTheme.colorScheme.surface,
+    elevation = FloatingActionButtonDefaults.elevation(
+      defaultElevation = 0.dp,
+      pressedElevation = 0.dp,
+      focusedElevation = 0.dp,
+      hoveredElevation = 0.dp,
+    ),
+  ) {
     Icon(
       imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.FilterList,
       contentDescription = if (expanded) "Close legend" else "Legend and filters",
