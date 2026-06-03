@@ -48,7 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import eu.slickbot.avimar.data.search.RecentEntity
 import eu.slickbot.avimar.ui.common.CircleIconButton
 import eu.slickbot.avimar.ui.common.PhotoViewer
-import eu.slickbot.avimar.ui.search.AvimarSearchBar
+import eu.slickbot.avimar.ui.search.AviMarSearchBar
 import eu.slickbot.avimar.ui.search.SearchHit
 import eu.slickbot.avimar.ui.search.searchHits
 import eu.slickbot.avimar.ui.settings.SettingsScreen
@@ -243,7 +243,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
           exit = fadeOut(),
           modifier = Modifier.align(Alignment.TopStart),
         ) {
-          AvimarSearchBar(
+          AviMarSearchBar(
             query = searchQuery,
             onQueryChange = { searchQuery = it },
             expanded = searchExpanded,

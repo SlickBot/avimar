@@ -28,10 +28,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.slickbot.avimar.data.search.RecentEntity
-import eu.slickbot.avimar.ui.theme.AvimarAccents
+import eu.slickbot.avimar.ui.theme.AviMarAccents
 
 @Composable
-fun AvimarSearchBar(
+fun AviMarSearchBar(
   query: String,
   onQueryChange: (String) -> Unit,
   expanded: Boolean,
@@ -155,8 +155,8 @@ private fun EntityRow(
   trailingContent: (@Composable () -> Unit)? = null,
 ) {
   val (icon, tint) = when (kind) {
-    RecentEntity.Kind.PLANE -> Icons.Filled.Flight to AvimarAccents.plane
-    RecentEntity.Kind.SHIP -> Icons.Filled.DirectionsBoat to AvimarAccents.ship
+    RecentEntity.Kind.PLANE -> Icons.Filled.Flight to AviMarAccents.plane
+    RecentEntity.Kind.SHIP -> Icons.Filled.DirectionsBoat to AviMarAccents.ship
   }
   ListItem(
     headlineContent = { Text(title, fontWeight = headlineFontWeight) },

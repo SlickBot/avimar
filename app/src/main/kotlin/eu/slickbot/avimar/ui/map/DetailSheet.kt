@@ -60,7 +60,7 @@ import eu.slickbot.avimar.data.adsb.info.AircraftSpecs
 import eu.slickbot.avimar.data.ais.Vessel
 import eu.slickbot.avimar.data.ais.info.VesselDetails
 import eu.slickbot.avimar.data.ais.info.VesselInfoLink
-import eu.slickbot.avimar.ui.theme.AvimarAccents
+import eu.slickbot.avimar.ui.theme.AviMarAccents
 import kotlin.math.roundToInt
 
 private data class LabeledLink(val label: String, val url: String)
@@ -180,8 +180,8 @@ private fun Header(
   onFollowChange: (Boolean) -> Unit,
 ) {
   val (icon, accent) = when (selection) {
-    is MapSelection.Plane -> Icons.Filled.Flight to AvimarAccents.plane
-    is MapSelection.Ship -> Icons.Filled.DirectionsBoat to AvimarAccents.ship
+    is MapSelection.Plane -> Icons.Filled.Flight to AviMarAccents.plane
+    is MapSelection.Ship -> Icons.Filled.DirectionsBoat to AviMarAccents.ship
   }
   Row(
     modifier = Modifier.fillMaxWidth(),
@@ -355,7 +355,7 @@ private fun TrackingLinks(links: List<LabeledLink>) {
     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
-    val accent = AvimarAccents.plane
+    val accent = AviMarAccents.plane
     links.forEach { link ->
       val brand = brandDrawable(link.label)
       Box(

@@ -1,10 +1,5 @@
-# Keep kotlinx.serialization annotations and serializer companions.
--keepattributes *Annotation*, InnerClasses
--dontnote kotlinx.serialization.SerializationKt
--keep,includedescriptorclasses class eu.slickbot.avimar.**$$serializer { *; }
--keepclassmembers class eu.slickbot.avimar.** {
-    *** Companion;
-}
--keepclasseswithmembers class eu.slickbot.avimar.** {
-    kotlinx.serialization.KSerializer serializer(...);
-}
+# Keep readable stack traces in release crash reports.
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
+# MapLibre and kotlinx.serialization ship their own consumer keep rules.

@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up build environment
+        uses: ./.github/actions/setup
+
+      - name: Run tests
+        run: ./gradlew test --stacktrace
+
+      - name: Upload test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  release:
+    name: Build signed release & publish
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up build environment
+        uses: ./.github/actions/setup
+
+      - name: Decode keystore
+        run: |
+          printf '%s' "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '[:space:]' | base64 -d > "${{ runner.temp }}/release-key.jks"
+
+      - name: Build signed release & debug APKs
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/release-key.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease :app:assembleDebug --stacktrace
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "${{ runner.temp }}/release-key.jks"
+
+      - name: Rename APKs & R8 mapping
+        run: |
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/avimar-${{ github.ref_name }}-debug.apk
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/avimar-${{ github.ref_name }}-release.apk
+          gzip -c app/build/outputs/mapping/release/mapping.txt > "app/build/outputs/mapping/release/avimar-${{ github.ref_name }}-release-mapping.txt.gz"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          # The R8 mapping is published too (safe: OSS repo) so crash traces decode.
+          files: |
+            app/build/outputs/apk/debug/avimar-${{ github.ref_name }}-debug.apk
+            app/build/outputs/apk/release/avimar-${{ github.ref_name }}-release.apk
+            app/build/outputs/mapping/release/avimar-${{ github.ref_name }}-release-mapping.txt.gz
+          fail_on_unmatched_files: true

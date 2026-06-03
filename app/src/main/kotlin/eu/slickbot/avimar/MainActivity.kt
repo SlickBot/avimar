@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import eu.slickbot.avimar.ui.map.MapScreen
-import eu.slickbot.avimar.ui.theme.AvimarTheme
+import eu.slickbot.avimar.ui.theme.AviMarTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     setContent {
-      AvimarTheme {
+      AviMarTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
           MapScreen()
         }

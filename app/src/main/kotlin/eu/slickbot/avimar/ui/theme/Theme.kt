@@ -7,7 +7,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-object AvimarAccents {
+object AviMarAccents {
 
   val plane: Color
     @Composable get() {
@@ -58,7 +58,7 @@ private val LightColors = lightColorScheme(
 )
 
 @Composable
-fun AvimarTheme(
+fun AviMarTheme(
   darkTheme: Boolean = isSystemInDarkTheme(),
   content: @Composable () -> Unit,
 ) {

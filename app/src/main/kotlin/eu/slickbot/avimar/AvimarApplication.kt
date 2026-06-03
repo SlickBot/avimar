@@ -11,13 +11,13 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import org.maplibre.android.MapLibre
 
-class AvimarApplication : Application(), ImageLoaderFactory {
+class AviMarApplication : Application(), ImageLoaderFactory {
 
   override fun onCreate() {
     super.onCreate()
     MapLibre.getInstance(this)
     startKoin {
-      androidContext(this@AvimarApplication)
+      androidContext(this@AviMarApplication)
       modules(dataModule, viewModelModule)
     }
   }

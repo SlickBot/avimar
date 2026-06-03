@@ -1,0 +1,23 @@
+name: Set up build environment
+description: Provisions the Temurin JDK, Gradle (with caching), and the Android SDK for avimar builds.
+
+inputs:
+  java-version:
+    description: Temurin JDK version used to run Gradle.
+    required: false
+    default: '21'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up JDK ${{ inputs.java-version }}
+      uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: ${{ inputs.java-version }}
+
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Set up Android SDK
+      uses: android-actions/setup-android@v3

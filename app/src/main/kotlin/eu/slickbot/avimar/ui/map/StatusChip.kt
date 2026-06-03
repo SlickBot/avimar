@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.dp
 import eu.slickbot.avimar.data.ais.AisConnectionState
 import eu.slickbot.avimar.data.ais.translate.AisStreamHealth
 import eu.slickbot.avimar.ui.common.OverlayCard
-import eu.slickbot.avimar.ui.theme.AvimarAccents
+import eu.slickbot.avimar.ui.theme.AviMarAccents
 import eu.slickbot.avimar.ui.theme.StatusConnected
 import eu.slickbot.avimar.ui.theme.StatusConnecting
 import eu.slickbot.avimar.ui.theme.StatusOffline
@@ -51,8 +51,8 @@ fun StatusChip(
       horizontalArrangement = Arrangement.spacedBy(12.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
-      CountChip(Icons.Filled.Flight, aircraftCount, AvimarAccents.plane)
-      CountChip(Icons.Filled.DirectionsBoat, vesselCount, AvimarAccents.ship)
+      CountChip(Icons.Filled.Flight, aircraftCount, AviMarAccents.plane)
+      CountChip(Icons.Filled.DirectionsBoat, vesselCount, AviMarAccents.ship)
       AisIndicator(aisConnection, aisEnabled, aisKeyMissing, aisHealth, onAddAisKey)
     }
   }
@@ -81,7 +81,7 @@ private fun AisIndicator(
 ) {
   val ageSec = health?.translatedAge?.seconds
   val (color, baseLabel) = when {
-    keyMissing -> AvimarAccents.alert to "Add AIS key"
+    keyMissing -> AviMarAccents.alert to "Add AIS key"
     !enabled -> StatusOffline to "AIS off"
     state == AisConnectionState.Connected && ageSec != null && ageSec > STALE_TRANSLATED_AGE_SECONDS -> StatusConnecting to "AIS stale"
     state == AisConnectionState.Connected -> StatusConnected to "AIS live"

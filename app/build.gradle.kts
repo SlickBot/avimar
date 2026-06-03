@@ -6,6 +6,9 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
+val appVersionName = "0.1.0"
+val appVersionCode = 1
+
 android {
   namespace = "eu.slickbot.avimar"
 
@@ -16,19 +19,37 @@ android {
     targetSdk = 37
     compileSdk = 37
 
-    versionCode = 1
-    versionName = "0.1.0"
+    versionCode = appVersionCode
+    versionName = appVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  signingConfigs {
+    create("release") {
+      storeFile = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotEmpty() }?.let { file(it) }
+      storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
+      keyAlias = System.getenv("KEY_ALIAS") ?: ""
+      keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+    }
+  }
+
   buildTypes {
     release {
-      isMinifyEnabled = false
+      applicationIdSuffix = ".release"
+      resValue("string", "app_name", "AviMar")
+
+      isMinifyEnabled = true
+      isShrinkResources = true
+      signingConfig = signingConfigs.getByName("release")
       proguardFiles(
         getDefaultProguardFile("proguard-android-optimize.txt"),
         "proguard-rules.pro"
       )
+    }
+    debug {
+      applicationIdSuffix = ".debug"
+      resValue("string", "app_name", "AviMar🐛")
     }
   }
 
@@ -40,6 +61,7 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+    resValues = true
   }
 
   packaging {
