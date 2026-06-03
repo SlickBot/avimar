@@ -48,6 +48,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import eu.slickbot.airnav.data.search.RecentEntity
 import eu.slickbot.airnav.ui.common.CircleIconButton
+import eu.slickbot.airnav.ui.common.PhotoViewer
 import eu.slickbot.airnav.ui.search.AirnavSearchBar
 import eu.slickbot.airnav.ui.search.SearchHit
 import eu.slickbot.airnav.ui.search.searchHits
@@ -87,6 +88,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
 
   var showSettings by remember { mutableStateOf(false) }
   var legendOpen by remember { mutableStateOf(false) }
+  var photoViewer by remember { mutableStateOf<PhotoViewerRequest?>(null) }
   var settingsTab by remember { mutableIntStateOf(0) }
   var searchQuery by remember { mutableStateOf("") }
   var searchExpanded by remember { mutableStateOf(false) }
@@ -124,7 +126,11 @@ fun MapScreen(modifier: Modifier = Modifier) {
   val activity = LocalActivity.current
   val darkTheme = isSystemInDarkTheme()
   val overlayOpen = searchExpanded || showSettings
-  val lightStatusBarIcons = if (overlayOpen) !darkTheme else tileStyle.isLight
+  val lightStatusBarIcons = when {
+    photoViewer != null -> false // white icons over the black fullscreen viewer
+    overlayOpen -> !darkTheme
+    else -> tileStyle.isLight
+  }
   LaunchedEffect(lightStatusBarIcons, activity, view) {
     val window = activity?.window ?: return@LaunchedEffect
     WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = lightStatusBarIcons
@@ -166,6 +172,7 @@ fun MapScreen(modifier: Modifier = Modifier) {
               scope.launch { sheetState.partialExpand() }
             }
           },
+          onOpenPhoto = { urls, index, desc -> photoViewer = PhotoViewerRequest(urls, index, desc) },
           modifier = Modifier.navigationBarsPadding(),
         )
       } else {
@@ -309,6 +316,17 @@ fun MapScreen(modifier: Modifier = Modifier) {
     )
   }
 
+  // Full-screen photo viewer as a top-level overlay (the activity is edge-to-edge, so
+  // it covers the whole screen including behind the system bars).
+  photoViewer?.let { req ->
+    PhotoViewer(
+      urls = req.urls,
+      initialIndex = req.index,
+      contentDescription = req.contentDescription,
+      onDismiss = { photoViewer = null },
+    )
+  }
+
   // ---------- Controller syncs (state -> map) ----------
 
   LaunchedEffect(controller, aircraft) { controller?.updateAircraft(aircraft) }
@@ -407,6 +425,12 @@ fun MapScreen(modifier: Modifier = Modifier) {
 }
 
 private const val VESSEL_PUSH_INTERVAL_MS = 500L
+
+private data class PhotoViewerRequest(
+  val urls: List<String>,
+  val index: Int,
+  val contentDescription: String,
+)
 
 private fun selectionKeyOf(s: MapSelection): String {
   return when (s) {

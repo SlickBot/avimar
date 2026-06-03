@@ -7,6 +7,7 @@ import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbClient
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbFlightRoute
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryClient
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryRegistrationResponse
+import eu.slickbot.airnav.data.adsb.info.airportdata.AirportDataClient
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643LookupResponse
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643LookupService
 import eu.slickbot.airnav.data.adsb.info.foxtrotcharlie.FoxtrotCharlieAircraftResponse
@@ -34,6 +35,7 @@ fun buildAircraftInfoProvider(
   hexdbClient: HexdbClient,
   foxtrotCharlieClient: FoxtrotCharlieClient,
   airHistoryClient: AirHistoryClient,
+  airportDataClient: AirportDataClient,
   doc8643LookupService: Doc8643LookupService,
   cacheTtl: Duration,
   clock: Clock = Clock.systemUTC(),
@@ -43,6 +45,7 @@ fun buildAircraftInfoProvider(
     hexdb = { icao -> runCatching { hexdbClient.getAircraft(icao) }.getOrNull() },
     foxtrotCharlie = { icao -> runCatching { foxtrotCharlieClient.getAircraft(icao) }.getOrNull() },
     airHistory = { reg -> runCatching { airHistoryClient.getByRegistration(reg) }.getOrNull() },
+    airportData = { icao -> runCatching { airportDataClient.getPhotos(icao) }.getOrNull().orEmpty() },
     doc8643 = { designator -> runCatching { doc8643LookupService.lookup(designator) }.getOrNull() },
     cacheTtl = cacheTtl,
     clock = clock,
@@ -59,6 +62,7 @@ class AircraftInfoProvider internal constructor(
   private val hexdb: (String) -> HexdbAircraftResponse?,
   private val foxtrotCharlie: (String) -> FoxtrotCharlieAircraftResponse?,
   private val airHistory: (String) -> AirHistoryRegistrationResponse?,
+  private val airportData: (String) -> List<String> = { emptyList() },
   private val doc8643: (String) -> Doc8643LookupResponse? = { null },
   cacheTtl: Duration,
   maxCacheSize: Int = DEFAULT_MAX_CACHE_SIZE,
@@ -101,6 +105,7 @@ class AircraftInfoProvider internal constructor(
 
     val resolved = merge(
       external.adsbdb?.let { toInfoFromAdsbDb(normalizedIcao, it) },
+      toInfoFromAirportData(normalizedIcao, external.airportDataPhotos),
       external.hexdb?.let { toInfoFromHexdb(normalizedIcao, it) },
       external.foxtrotCharlie?.let { toInfoFromFoxtrotCharlie(normalizedIcao, it) },
       external.doc8643?.let { toInfoFromDoc8643(normalizedIcao, it) },
@@ -109,7 +114,7 @@ class AircraftInfoProvider internal constructor(
     )
 
     if (resolved != null) {
-      val withTime = resolved.copy(updatedAt = now)
+      val withTime = appendDoc8643TypeImage(resolved).copy(updatedAt = now)
       cache.put(normalizedIcao, stripDynamicFields(withTime))
       return appendTrackingLinks(withTime)
     }
@@ -127,6 +132,7 @@ class AircraftInfoProvider internal constructor(
     val hexdb: HexdbAircraftResponse?,
     val foxtrotCharlie: FoxtrotCharlieAircraftResponse?,
     val airHistory: AirHistoryRegistrationResponse?,
+    val airportDataPhotos: List<String>,
     val doc8643: Doc8643LookupResponse?,
   )
 
@@ -138,6 +144,7 @@ class AircraftInfoProvider internal constructor(
       val adsbdbDeferred = async { adsbdb(icao, hint?.callsign) }
       val hexdbDeferred = async { hexdb(icao) }
       val foxtrotDeferred = async { foxtrotCharlie(icao) }
+      val airportDataDeferred = async { airportData(icao) }
 
       val adsb = adsbdbDeferred.await()?.response
       val hex = hexdbDeferred.await()?.takeIf { isValidHexdb(it) }
@@ -163,6 +170,7 @@ class AircraftInfoProvider internal constructor(
         hexdb = hex,
         foxtrotCharlie = foxtrot,
         airHistory = airHist,
+        airportDataPhotos = airportDataDeferred.await(),
         doc8643 = doc,
       )
     }
@@ -270,6 +278,24 @@ class AircraftInfoProvider internal constructor(
       operator = r.aircraft?.operatorTitles,
       photoUrls = photos,
     )
+  }
+
+  /**
+   * doc8643 serves the type photo at a deterministic URL keyed by designator, so we
+   * add it directly instead of depending on the page scrape (which can be Cloudflare-
+   * gated on-device). Deduped against any image the scrape already found.
+   */
+  private fun appendDoc8643TypeImage(info: AircraftInfo): AircraftInfo {
+    val type = info.typeDesignator?.trim()?.uppercase()?.ifBlank { null } ?: return info
+    val url = "https://doc8643.com/static/img/aircraft/large/$type.jpg"
+    if (url in info.modelPhotoUrls) return info
+    return info.copy(modelPhotoUrls = info.modelPhotoUrls + url)
+  }
+
+  private fun toInfoFromAirportData(icao: String, photos: List<String>): AircraftInfo? {
+    val urls = photos.filter { it.isNotBlank() }
+    if (urls.isEmpty()) return null
+    return AircraftInfo(icao = icao, photoUrls = urls)
   }
 
   private fun toInfoFromHint(icao: String, hint: AircraftInfoHint): AircraftInfo {

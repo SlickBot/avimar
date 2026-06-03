@@ -1,5 +1,6 @@
 package eu.slickbot.airnav.ui.common
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -27,8 +28,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 
 /**
@@ -43,38 +42,32 @@ fun PhotoViewer(
   onDismiss: () -> Unit,
 ) {
   if (urls.isEmpty()) return
-  Dialog(
-    onDismissRequest = onDismiss,
-    properties = DialogProperties(
-      usePlatformDefaultWidth = false,
-      dismissOnBackPress = true,
-      dismissOnClickOutside = false,
-    ),
+  // A full-screen overlay (not a Dialog): the host activity is edge-to-edge, so this
+  // covers the whole screen including behind the system bars - no dialog-window gap.
+  BackHandler(onBack = onDismiss)
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(Color.Black),
   ) {
-    Box(
+    val pagerState = rememberPagerState(initialPage = initialIndex.coerceIn(0, urls.size - 1)) { urls.size }
+    HorizontalPager(
+      state = pagerState,
+      modifier = Modifier.fillMaxSize(),
+    ) { page ->
+      ZoomableImage(
+        url = urls[page],
+        contentDescription = contentDescription,
+      )
+    }
+    IconButton(
+      onClick = onDismiss,
       modifier = Modifier
-        .fillMaxSize()
-        .background(Color.Black),
+        .align(Alignment.TopEnd)
+        .statusBarsPadding()
+        .padding(8.dp),
     ) {
-      val pagerState = rememberPagerState(initialPage = initialIndex.coerceIn(0, urls.size - 1)) { urls.size }
-      HorizontalPager(
-        state = pagerState,
-        modifier = Modifier.fillMaxSize(),
-      ) { page ->
-        ZoomableImage(
-          url = urls[page],
-          contentDescription = contentDescription,
-        )
-      }
-      IconButton(
-        onClick = onDismiss,
-        modifier = Modifier
-          .align(Alignment.TopEnd)
-          .statusBarsPadding()
-          .padding(8.dp),
-      ) {
-        Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
-      }
+      Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White)
     }
   }
 }

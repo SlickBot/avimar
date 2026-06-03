@@ -4,6 +4,7 @@ import eu.slickbot.airnav.data.adsb.AdsbRepository
 import eu.slickbot.airnav.data.adsb.info.adsbdb.AdsbDbClient
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryClient
 import eu.slickbot.airnav.data.adsb.info.airhistory.AirHistoryParser
+import eu.slickbot.airnav.data.adsb.info.airportdata.AirportDataClient
 import eu.slickbot.airnav.data.adsb.info.buildAircraftInfoProvider
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643Client
 import eu.slickbot.airnav.data.adsb.info.doc8643.Doc8643LookupService
@@ -76,6 +77,7 @@ val dataModule = module {
   single { FoxtrotCharlieClient(fetcher = get(), json = get()) }
   single { AirHistoryParser() }
   single { AirHistoryClient(fetcher = get(), parser = get()) }
+  single { AirportDataClient(jsonFetcher = get(), json = get()) }
 
   single {
     buildAircraftInfoProvider(
@@ -83,6 +85,7 @@ val dataModule = module {
       hexdbClient = get(),
       foxtrotCharlieClient = get(),
       airHistoryClient = get(),
+      airportDataClient = get(),
       doc8643LookupService = get(),
       cacheTtl = Duration.ofHours(24),
     )

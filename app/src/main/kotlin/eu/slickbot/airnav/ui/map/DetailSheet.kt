@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,11 +35,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +45,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
@@ -59,7 +60,6 @@ import eu.slickbot.airnav.data.adsb.info.AircraftSpecs
 import eu.slickbot.airnav.data.ais.Vessel
 import eu.slickbot.airnav.data.ais.info.VesselDetails
 import eu.slickbot.airnav.data.ais.info.VesselInfoLink
-import eu.slickbot.airnav.ui.common.PhotoViewer
 import eu.slickbot.airnav.ui.theme.AirnavAccents
 import kotlin.math.roundToInt
 
@@ -75,6 +75,7 @@ fun DetailSheetContent(
   planeEnrichment: Loadable<AircraftInfo>,
   shipEnrichment: Loadable<VesselDetails>,
   onFollowChange: (Boolean) -> Unit,
+  onOpenPhoto: (urls: List<String>, index: Int, contentDescription: String) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   Column(
@@ -100,9 +101,9 @@ fun DetailSheetContent(
       ) {
         when (selection) {
           is MapSelection.Plane ->
-            PlaneBody(selection.aircraft, (planeEnrichment as Loadable.Ready).value)
+            PlaneBody(selection.aircraft, (planeEnrichment as Loadable.Ready).value, onOpenPhoto)
           is MapSelection.Ship ->
-            ShipBody(selection.vessel, (shipEnrichment as Loadable.Ready).value)
+            ShipBody(selection.vessel, (shipEnrichment as Loadable.Ready).value, onOpenPhoto)
         }
         Spacer(modifier = Modifier.size(8.dp))
       }
@@ -123,11 +124,16 @@ private fun LoaderBody() {
 }
 
 @Composable
-private fun PlaneBody(aircraft: Aircraft, info: AircraftInfo?) {
+private fun PlaneBody(
+  aircraft: Aircraft,
+  info: AircraftInfo?,
+  onOpenPhoto: (urls: List<String>, index: Int, contentDescription: String) -> Unit,
+) {
   info?.flightRoute?.let { RouteRow(it) }
   PhotoGallery(
     info?.photoUrls.orEmpty() + info?.modelPhotoUrls.orEmpty(),
     contentDescription = "Aircraft photo",
+    onOpenPhoto = onOpenPhoto,
   )
   Section("Live ADS-B") { PlaneLiveRows(aircraft) }
   info?.let {
@@ -146,8 +152,16 @@ private fun PlaneBody(aircraft: Aircraft, info: AircraftInfo?) {
 }
 
 @Composable
-private fun ShipBody(vessel: Vessel, details: VesselDetails?) {
-  PhotoGallery(details?.photoUrls.orEmpty(), contentDescription = "Vessel photo")
+private fun ShipBody(
+  vessel: Vessel,
+  details: VesselDetails?,
+  onOpenPhoto: (urls: List<String>, index: Int, contentDescription: String) -> Unit,
+) {
+  PhotoGallery(
+    details?.photoUrls.orEmpty(),
+    contentDescription = "Vessel photo",
+    onOpenPhoto = onOpenPhoto,
+  )
   Section("Live AIS") { ShipDetails(vessel) }
   details?.let { d ->
     if (d.hasMeaningfulData() || d.flag != null) {
@@ -223,41 +237,36 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun PhotoGallery(urls: List<String>, contentDescription: String) {
-  val photos = remember(urls) { urls.filter { it.isNotBlank() }.distinct().take(2) }
+private fun PhotoGallery(
+  urls: List<String>,
+  contentDescription: String,
+  onOpenPhoto: (urls: List<String>, index: Int, contentDescription: String) -> Unit,
+) {
+  val photos = remember(urls) { urls.filter { it.isNotBlank() }.distinct() }
   if (photos.isEmpty()) return
   val failed = remember(urls) { mutableStateListOf<String>() }
   val shown = photos.filter { it !in failed }
   if (shown.isEmpty()) return
 
-  var viewerIndex by remember { mutableStateOf<Int?>(null) }
-
-  Row(
+  // Show every photo in a horizontal strip, ~2 at a time (a single one fills the row).
+  val widthFraction = if (shown.size == 1) 1f else 0.48f
+  LazyRow(
     modifier = Modifier.fillMaxWidth().height(96.dp),
     horizontalArrangement = Arrangement.spacedBy(6.dp),
   ) {
-    shown.forEachIndexed { index, url ->
+    itemsIndexed(shown) { index, url ->
       AsyncImage(
         model = url,
         contentDescription = contentDescription,
         contentScale = ContentScale.Crop,
         onError = { failed.add(url) },
         modifier = Modifier
-          .weight(1f)
+          .fillParentMaxWidth(widthFraction)
           .fillMaxHeight()
           .clip(RoundedCornerShape(8.dp))
-          .clickable { viewerIndex = index },
+          .clickable { onOpenPhoto(shown, index, contentDescription) },
       )
     }
-  }
-
-  viewerIndex?.let { idx ->
-    PhotoViewer(
-      urls = shown,
-      initialIndex = idx,
-      contentDescription = contentDescription,
-      onDismiss = { viewerIndex = null },
-    )
   }
 }
 
@@ -395,10 +404,20 @@ private fun brandDrawable(label: String): Int? {
   return when {
     label.contains("ADS-B Exchange", ignoreCase = true) || label.contains("adsbexchange", ignoreCase = true) ->
       R.drawable.link_adsbexchange
+    label.contains("Flightradar", ignoreCase = true) || label.contains("fr24", ignoreCase = true) ->
+      R.drawable.link_flightradar24
     label.contains("AirHistory", ignoreCase = true) || label.contains("air history", ignoreCase = true) ->
       R.drawable.link_airhistory
     label.contains("PlaneSpotters", ignoreCase = true) || label.contains("planespotter", ignoreCase = true) ->
       R.drawable.link_planespotters
+    label.contains("MarineTraffic", ignoreCase = true) ->
+      R.drawable.link_marinetraffic
+    label.contains("VesselFinder", ignoreCase = true) ->
+      R.drawable.link_vesselfinder
+    label.contains("MyShipTracking", ignoreCase = true) ->
+      R.drawable.link_myshiptracking
+    label.contains("ShipSpotting", ignoreCase = true) ->
+      R.drawable.link_shipspotting
     else -> null
   }
 }
@@ -431,7 +450,7 @@ private fun ShipEnrichmentRows(details: VesselDetails) {
 private fun DetailRow(label: String, value: String) {
   Row(
     modifier = Modifier.fillMaxWidth(),
-    horizontalArrangement = Arrangement.SpaceBetween,
+    horizontalArrangement = Arrangement.spacedBy(12.dp),
     verticalAlignment = Alignment.CenterVertically,
   ) {
     Text(
@@ -444,6 +463,10 @@ private fun DetailRow(label: String, value: String) {
       fontFamily = if (isNumericValue(value)) FontFamily.Monospace else FontFamily.Default,
       fontWeight = FontWeight.Medium,
       style = MaterialTheme.typography.bodySmall,
+      textAlign = TextAlign.End,
+      maxLines = 1,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.weight(1f),
     )
   }
 }

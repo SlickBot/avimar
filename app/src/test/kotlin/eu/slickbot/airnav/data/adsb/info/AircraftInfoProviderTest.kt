@@ -103,6 +103,21 @@ class AircraftInfoProviderTest {
   }
 
   @Test
+  fun `doc8643 type image is derived from the type designator`() = runTest {
+    val p = provider(
+      adsbdbCall = { _, _ -> adsbdb(reg = "HA-LXE", icaoType = "A321", owner = "Wizz Air") },
+    )
+    val r = p.fetch(
+      icao = "471F51", callsign = null, registration = null,
+      typeDesignator = null, operator = null, description = null,
+    )!!
+    assertEquals("A321", r.typeDesignator)
+    assertTrue(
+      r.modelPhotoUrls.contains("https://doc8643.com/static/img/aircraft/large/A321.jpg"),
+    )
+  }
+
+  @Test
   fun `adsbdb is called with callsign hint when provided`() = runTest {
     var seenCallsign: String? = "NEVER_SET"
     val p = provider(
