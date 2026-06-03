@@ -1,9 +1,8 @@
-package eu.slickbot.airnav.ui.map.settings
+package eu.slickbot.airnav.ui.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -101,7 +100,6 @@ fun SettingsScreen(
   }
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun AviationTab(
   state: SettingsState,
@@ -133,7 +131,6 @@ private fun AviationTab(
   AltitudeFilter(state, actions)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun MaritimeTab(state: SettingsState, actions: SettingsActions) {
   ToggleRow("Show vessels", state.maritimeVisible, actions::setMaritimeVisible)
@@ -141,7 +138,6 @@ private fun MaritimeTab(state: SettingsState, actions: SettingsActions) {
   ApiKeyField(state, actions)
 }
 
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun GeneralTab(
   state: SettingsState,
@@ -177,7 +173,6 @@ private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AltitudeFilter(state: SettingsState, actions: SettingsActions) {
   var minText by remember(state.minAltitudeM) { mutableStateOf(state.minAltitudeM?.toString().orEmpty()) }
@@ -203,7 +198,6 @@ private fun AltitudeFilter(state: SettingsState, actions: SettingsActions) {
   }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ApiKeyField(state: SettingsState, actions: SettingsActions) {
   var draft by remember(state.aisApiKey) { mutableStateOf(state.aisApiKey.orEmpty()) }

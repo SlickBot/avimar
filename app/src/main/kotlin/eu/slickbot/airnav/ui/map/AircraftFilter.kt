@@ -18,6 +18,10 @@ data class AircraftFilter(
   val hiddenCategoryCodes: Set<String> = emptySet(),
 ) {
 
+  companion object {
+    val NONE = AircraftFilter()
+  }
+
   fun keep(aircraft: Aircraft): Boolean {
     val alt = aircraft.altitudeM
     if (hideGrounded && alt != null && alt <= 0) {
@@ -47,9 +51,5 @@ data class AircraftFilter(
       maxAltitudeM == null &&
       !hideGrounded &&
       hiddenCategoryCodes.isEmpty()
-  }
-
-  companion object {
-    val NONE = AircraftFilter()
   }
 }

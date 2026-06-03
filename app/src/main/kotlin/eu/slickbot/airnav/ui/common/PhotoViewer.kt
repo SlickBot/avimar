@@ -87,7 +87,6 @@ private fun ZoomableImage(url: String, contentDescription: String?) {
   Box(
     modifier = Modifier
       .fillMaxSize()
-      // Double-tap toggle: 1x ↔ 2x. Reset offset when collapsing back to fit.
       .pointerInput(Unit) {
         detectTapGestures(
           onDoubleTap = {
@@ -100,8 +99,6 @@ private fun ZoomableImage(url: String, contentDescription: String?) {
           },
         )
       }
-      // Pan + zoom; pan is only meaningful while zoomed in, so swipe-paging
-      // stays available at 1x.
       .pointerInput(Unit) {
         detectTransformGestures { _, pan, zoom, _ ->
           val newScale = (scale * zoom).coerceIn(1f, MAX_SCALE)

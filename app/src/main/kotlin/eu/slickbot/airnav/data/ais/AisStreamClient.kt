@@ -35,6 +35,29 @@ class AisStreamClient(
   private val baseClient: OkHttpClient = defaultClient(),
   private val json: Json = defaultJson(),
 ) {
+
+  companion object {
+    private const val TAG = "AisStreamClient"
+    private const val MIN_BACKOFF_MS = 5_000L
+    private const val MAX_BACKOFF_MS = 60_000L
+
+    // WebSocket close codes are app-defined in the 4000-4999 range.
+    private const val SERVER_ERROR_CLOSE = 4001
+    private const val SUBSCRIPTION_FAIL_CLOSE = 4002
+
+    fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+      .connectTimeout(15, TimeUnit.SECONDS)
+      .pingInterval(20, TimeUnit.SECONDS)
+      .readTimeout(0, TimeUnit.SECONDS)
+      .build()
+
+    fun defaultJson(): Json = Json {
+      ignoreUnknownKeys = true
+      isLenient = true
+      coerceInputValues = true
+    }
+  }
+
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var webSocket: WebSocket? = null
   private var reconnectJob: Job? = null
@@ -60,11 +83,6 @@ class AisStreamClient(
     }
     running = true
     openSocket()
-  }
-
-  fun updateBoundingBox(bbox: BoundingBox) {
-    this.bbox = bbox
-    if (running) sendSubscription()
   }
 
   fun stop() {
@@ -167,6 +185,7 @@ class AisStreamClient(
     }
   }
 
+  @Suppress("ConvertLongToDuration")
   private fun scheduleReconnect() {
     if (reconnectJob?.isActive == true) return
     val delayMs = backoffPolicy.nextDelayMs(translatedDuringSession)
@@ -174,28 +193,6 @@ class AisStreamClient(
     reconnectJob = scope.launch {
       delay(delayMs)
       if (running) openSocket()
-    }
-  }
-
-  companion object {
-    private const val TAG = "AisStreamClient"
-    private const val MIN_BACKOFF_MS = 5_000L
-    private const val MAX_BACKOFF_MS = 60_000L
-
-    // WebSocket close codes are app-defined in the 4000-4999 range.
-    private const val SERVER_ERROR_CLOSE = 4001
-    private const val SUBSCRIPTION_FAIL_CLOSE = 4002
-
-    fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
-      .connectTimeout(15, TimeUnit.SECONDS)
-      .pingInterval(20, TimeUnit.SECONDS)
-      .readTimeout(0, TimeUnit.SECONDS)
-      .build()
-
-    fun defaultJson(): Json = Json {
-      ignoreUnknownKeys = true
-      isLenient = true
-      coerceInputValues = true
     }
   }
 }

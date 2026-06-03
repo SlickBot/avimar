@@ -54,8 +54,7 @@ open class BaseHttpFetcher(
 ) : HttpFetcher {
 
   companion object {
-    const val DEFAULT_BROWSER_USER_AGENT: String =
-      "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0"
+    const val DEFAULT_BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64; rv:146.0) Gecko/20100101 Firefox/146.0"
     private const val TAG_LOG = "HttpFetcher"
   }
 

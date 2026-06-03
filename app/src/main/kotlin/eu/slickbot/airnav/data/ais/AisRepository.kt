@@ -7,7 +7,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +37,7 @@ class AisRepository(
   private var collector: Job? = null
   private var pruneJob: Job? = null
 
+  @Suppress("ConvertLongToDuration")
   fun start(apiKey: String, bbox: BoundingBox) {
     if (collector == null) {
       collector = scope.launch {
@@ -61,10 +61,6 @@ class AisRepository(
     client.start(apiKey, bbox)
   }
 
-  fun updateBoundingBox(bbox: BoundingBox) {
-    client.updateBoundingBox(bbox)
-  }
-
   fun stop() {
     client.stop()
     collector?.cancel()
@@ -73,11 +69,6 @@ class AisRepository(
     pruneJob = null
     store.clear()
     _vessels.value = emptyList()
-  }
-
-  fun shutdown() {
-    client.shutdown()
-    scope.cancel()
   }
 
   fun health(): AisStreamHealth {

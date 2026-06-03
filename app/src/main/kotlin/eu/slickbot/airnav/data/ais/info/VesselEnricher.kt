@@ -23,6 +23,22 @@ class VesselEnricher(
   private val myShipTrackingParser: MyShipTrackingParser = MyShipTrackingParser(),
 ) {
 
+  companion object {
+    private const val TAG = "VesselEnricher"
+    private const val USER_AGENT =
+      "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
+          "Chrome/124.0 Mobile Safari/537.36"
+
+    fun defaultClient(): OkHttpClient {
+      return OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(20, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+    }
+  }
+
   private val cache = ConcurrentHashMap<Long, Optional>()
 
   suspend fun lookup(mmsi: Long, imo: Long? = null): VesselDetails? {
@@ -83,20 +99,4 @@ class VesselEnricher(
   }
 
   private data class Optional(val value: VesselDetails?)
-
-  companion object {
-    private const val TAG = "VesselEnricher"
-    private const val USER_AGENT =
-      "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "Chrome/124.0 Mobile Safari/537.36"
-
-    fun defaultClient(): OkHttpClient {
-      return OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
-    }
-  }
 }

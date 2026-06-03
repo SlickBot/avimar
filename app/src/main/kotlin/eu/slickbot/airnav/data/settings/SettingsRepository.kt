@@ -99,10 +99,6 @@ class SettingsRepository(private val context: Context) {
     store.edit { it[KEY_TRAILS_ENABLED] = enabled }
   }
 
-  suspend fun setOnboardingSeen(seen: Boolean) {
-    store.edit { it[KEY_ONBOARDING_SEEN] = seen }
-  }
-
   suspend fun setAviationVisible(visible: Boolean) {
     store.edit { it[KEY_AVIATION_VISIBLE] = visible }
   }

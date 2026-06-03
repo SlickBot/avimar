@@ -55,6 +55,22 @@ import org.maplibre.geojson.Point
  */
 class MapController(private val map: MapLibreMap) {
 
+  companion object {
+    const val AIRCRAFT_SOURCE = "aircraft-src"
+    const val AIRCRAFT_LAYER = "aircraft-layer"
+    const val VESSEL_SOURCE = "vessel-src"
+    const val VESSEL_LAYER = "vessel-layer"
+    const val TRAILS_SOURCE = "trails-src"
+    const val TRAILS_LAYER = "trails-layer"
+    const val SELECTION_SOURCE = "selection-src"
+    const val SELECTION_LAYER = "selection-layer"
+
+    private const val MAX_TRAIL_POINTS = 40
+    private const val BASE_ICON_SIZE = 0.8f
+    private const val AIRCRAFT_TRAIL_COLOR = "#4fc3f7"
+    private const val VESSEL_TRAIL_COLOR = "#80cbc4"
+  }
+
   private var style: Style? = null
   private var currentStyleId: String? = null
 
@@ -335,21 +351,5 @@ class MapController(private val map: MapLibreMap) {
 
   private fun source(id: String): GeoJsonSource? {
     return style?.getSourceAs(id)
-  }
-
-  companion object {
-    const val AIRCRAFT_SOURCE = "aircraft-src"
-    const val AIRCRAFT_LAYER = "aircraft-layer"
-    const val VESSEL_SOURCE = "vessel-src"
-    const val VESSEL_LAYER = "vessel-layer"
-    const val TRAILS_SOURCE = "trails-src"
-    const val TRAILS_LAYER = "trails-layer"
-    const val SELECTION_SOURCE = "selection-src"
-    const val SELECTION_LAYER = "selection-layer"
-
-    private const val MAX_TRAIL_POINTS = 40
-    private const val BASE_ICON_SIZE = 0.8f
-    private const val AIRCRAFT_TRAIL_COLOR = "#4fc3f7"
-    private const val VESSEL_TRAIL_COLOR = "#80cbc4"
   }
 }

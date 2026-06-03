@@ -8,7 +8,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -70,7 +69,6 @@ import kotlin.math.roundToInt
 private data class LabeledLink(val label: String, val url: String)
 
 private fun AircraftInfoLink.asLabeled() = LabeledLink(label, url)
-
 private fun VesselInfoLink.asLabeled() = LabeledLink(label, url)
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,12 +81,10 @@ fun DetailSheet(
   onFollowChange: (Boolean) -> Unit,
   onDismiss: () -> Unit,
 ) {
-  // Opens partially expanded (half); drag up for full, content scrolls if taller.
   val state = rememberModalBottomSheetState(skipPartiallyExpanded = false)
   val scope = rememberCoroutineScope()
   val onFollow: (Boolean) -> Unit = { enabled ->
     onFollowChange(enabled)
-    // Half-expand so the followed target is visible on the map above the sheet.
     if (enabled) scope.launch { state.partialExpand() }
   }
   ModalBottomSheet(
@@ -211,8 +207,6 @@ private fun Section(title: String, content: @Composable () -> Unit) {
 private fun PhotoGallery(urls: List<String>, contentDescription: String) {
   val photos = remember(urls) { urls.filter { it.isNotBlank() }.distinct().take(2) }
   if (photos.isEmpty()) return
-  // Drop images that fail to load (hot-link blocked / 404) so we never show
-  // empty boxes — matches the webclient's onError-hide behavior.
   val failed = remember(urls) { mutableStateListOf<String>() }
   val shown = photos.filter { it !in failed }
   if (shown.isEmpty()) return
@@ -339,7 +333,6 @@ private fun TrackingLinks(links: List<VesselInfoLink>) {
   TrackingLinksImpl(links.map { it.asLabeled() })
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TrackingLinksImpl(links: List<LabeledLink>) {
   val context = LocalContext.current

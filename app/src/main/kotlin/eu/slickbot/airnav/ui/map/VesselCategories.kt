@@ -51,9 +51,9 @@ val AIS_STATUS_CATEGORIES: List<AisStatusCategory> = listOf(
 
 /** Maps a raw AIS navigational status to a [AIS_STATUS_CATEGORIES] code. */
 fun resolveAisStatusFilterKey(navStatus: Int?): String {
-  return when {
-    navStatus == null -> "unknown"
-    navStatus in 0..8 -> navStatus.toString()
+  return when (navStatus) {
+    null -> "unknown"
+    in 0..8 -> navStatus.toString()
     else -> "other"
   }
 }

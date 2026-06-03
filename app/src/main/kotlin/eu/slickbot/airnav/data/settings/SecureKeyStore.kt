@@ -48,8 +48,6 @@ class SecureKeyStore(
     }
   }
 
-  fun currentAisApiKey(): String? = readKey()
-
   private fun readKey(): String? {
     val stored = prefs.getString(KEY_AIS, null) ?: return null
     return cipher.decrypt(stored)

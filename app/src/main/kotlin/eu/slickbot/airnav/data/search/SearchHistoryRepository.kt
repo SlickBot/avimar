@@ -16,6 +16,11 @@ class SearchHistoryRepository(
   private val json: Json,
 ) {
 
+  companion object {
+    private val KEY_RECENTS = stringPreferencesKey("recent_entities")
+    private const val MAX_RECENTS = 8
+  }
+
   private val store get() = context.applicationContext.searchDataStore
 
   val recentEntities: Flow<List<RecentEntity>> = store.data.map { prefs ->
@@ -46,10 +51,5 @@ class SearchHistoryRepository(
   private fun decode(raw: String?): List<RecentEntity> {
     if (raw == null) return emptyList()
     return runCatching { json.decodeFromString<List<RecentEntity>>(raw) }.getOrDefault(emptyList())
-  }
-
-  private companion object {
-    val KEY_RECENTS = stringPreferencesKey("recent_entities")
-    const val MAX_RECENTS = 8
   }
 }

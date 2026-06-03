@@ -34,16 +34,16 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import eu.slickbot.airnav.data.search.RecentEntity
 import eu.slickbot.airnav.ui.common.CircleIconButton
-import eu.slickbot.airnav.ui.map.settings.SettingsScreen
-import eu.slickbot.airnav.ui.onboarding.WelcomeDialog
 import eu.slickbot.airnav.ui.search.AirnavSearchBar
 import eu.slickbot.airnav.ui.search.SearchHit
 import eu.slickbot.airnav.ui.search.searchHits
+import eu.slickbot.airnav.ui.settings.SettingsScreen
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.sample
 import org.koin.androidx.compose.koinViewModel
 
+@Suppress("ConvertLongToDuration")
 @OptIn(FlowPreview::class)
 @Composable
 fun MapScreen(modifier: Modifier = Modifier) {
@@ -81,7 +81,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
   val following by viewModel.isFollowing.collectAsStateWithLifecycle()
   val planeEnrichment by viewModel.planeEnrichment.collectAsStateWithLifecycle()
   val shipEnrichment by viewModel.shipEnrichment.collectAsStateWithLifecycle()
-  val onboardingSeen by viewModel.onboardingSeen.collectAsStateWithLifecycle()
   val markerScale by viewModel.markerScale.collectAsStateWithLifecycle()
   val hiddenAircraft by viewModel.hiddenAircraftCategories.collectAsStateWithLifecycle()
   val hiddenVesselCats by viewModel.hiddenVesselCategories.collectAsStateWithLifecycle()
@@ -269,10 +268,6 @@ fun MapScreen(modifier: Modifier = Modifier) {
       onFollowChange = viewModel::setFollowing,
       onDismiss = viewModel::clearSelection,
     )
-  }
-
-  if (!onboardingSeen) {
-    WelcomeDialog(onDismiss = viewModel::markOnboardingSeen)
   }
 
   // ---------- Controller syncs (state -> map) ----------

@@ -12,6 +12,10 @@ data class VesselFilter(
   val hiddenStatusCodes: Set<String> = emptySet(),
 ) {
 
+  companion object {
+    val NONE = VesselFilter()
+  }
+
   fun keep(vessel: Vessel): Boolean {
     if (hiddenCategoryCodes.isNotEmpty() && vesselFilterCategory(vessel) in hiddenCategoryCodes) {
       return false
@@ -31,9 +35,5 @@ data class VesselFilter(
 
   private fun isNoOp(): Boolean {
     return hiddenCategoryCodes.isEmpty() && hiddenStatusCodes.isEmpty()
-  }
-
-  companion object {
-    val NONE = VesselFilter()
   }
 }

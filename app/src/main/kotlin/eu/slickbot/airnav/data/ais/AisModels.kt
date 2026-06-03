@@ -1,7 +1,6 @@
 package eu.slickbot.airnav.data.ais
 
 import kotlinx.serialization.EncodeDefault
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -22,10 +21,6 @@ data class AisBoundingBoxQuery(
     require(minLat in -90.0..90.0 && maxLat in -90.0..90.0) { "latitude must be in [-90, 90]" }
     require(minLon in -180.0..180.0 && maxLon in -180.0..180.0) { "longitude must be in [-180, 180]" }
     require(minLat <= maxLat) { "minLat must be <= maxLat" }
-  }
-
-  fun toBoundingBox(): List<List<Double>> {
-    return listOf(listOf(minLat, minLon), listOf(maxLat, maxLon))
   }
 
   fun crossesAntimeridian(): Boolean {
@@ -91,7 +86,6 @@ data class AisSnapshot(
 
 // ---------- Wire format (aisstream.io) ----------
 
-@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class AisStreamSubscription(
   @SerialName("APIKey") val apiKey: String,

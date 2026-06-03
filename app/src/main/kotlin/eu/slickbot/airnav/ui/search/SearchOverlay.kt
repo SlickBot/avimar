@@ -51,7 +51,6 @@ fun AirnavSearchBar(
   onRecentRemove: (RecentEntity) -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  // Collapse the surrounding padding so the bar goes edge-to-edge when expanded.
   val horizontalPadding by animateDpAsState(if (expanded) 0.dp else 12.dp, label = "searchHPad")
   val verticalPadding by animateDpAsState(if (expanded) 0.dp else 8.dp, label = "searchVPad")
 
@@ -85,8 +84,6 @@ fun AirnavSearchBar(
         } else {
           null
         },
-        // Transparent input-field container so the bar's flat surface shows through; M3
-        // otherwise paints the field a lighter tone than the bar/background/settings button.
         colors = SearchBarDefaults.inputFieldColors(
           focusedContainerColor = Color.Transparent,
           unfocusedContainerColor = Color.Transparent,
@@ -95,13 +92,8 @@ fun AirnavSearchBar(
     },
     expanded = expanded,
     onExpandedChange = onExpandedChange,
-    // No self-inset (always): the parent Row owns the status-bar padding so the bar and the
-    // sibling settings button stay aligned, and MapScreen paints the full-screen surface
-    // behind the expanded search (including the status-bar area), so insets never switch.
     windowInsets = WindowInsets(0, 0, 0, 0),
     colors = SearchBarDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-    // Flat (no tonal tint) so the surface is exactly colorScheme.surface and matches both the
-    // sibling settings button and the full-screen surface MapScreen paints behind it.
     tonalElevation = 0.dp,
   ) {
     if (query.isBlank()) {

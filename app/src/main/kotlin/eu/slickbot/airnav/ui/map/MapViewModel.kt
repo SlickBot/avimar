@@ -49,6 +49,7 @@ sealed interface MapSelection {
 
 data class CenterCommand(val lat: Double, val lon: Double, val zoom: Double?)
 
+@Suppress("ConvertLongToDuration")
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class MapViewModel(
   private val adsbRepo: AdsbRepository,
@@ -61,9 +62,11 @@ class MapViewModel(
   private val searchHistory: SearchHistoryRepository,
 ) : ViewModel() {
 
+  companion object {
+    private const val TAG = "MapViewModel"
+  }
+
   private val _viewport = MutableStateFlow<Viewport?>(null)
-  // Raw aircraft from the last fetch. Used directly by selection / enrichment
-  // lookups; the public [aircraft] flow applies the user's filters for the map.
   private val _aircraft = MutableStateFlow<List<Aircraft>>(emptyList())
 
   private val aircraftFilter: StateFlow<AircraftFilter> = combine(
@@ -385,10 +388,6 @@ class MapViewModel(
     secureStore.setAisApiKey(key)
   }
 
-  fun markOnboardingSeen() {
-    viewModelScope.launch { settings.setOnboardingSeen(true) }
-  }
-
   fun selectAircraft(hex: String) {
     _selectedVesselMmsi.value = null
     _selectedAircraftHex.value = hex
@@ -479,9 +478,5 @@ class MapViewModel(
 
   fun setHiddenVesselStatuses(statuses: Set<String>) {
     viewModelScope.launch { settings.setHiddenVesselStatuses(statuses) }
-  }
-
-  companion object {
-    private const val TAG = "MapViewModel"
   }
 }

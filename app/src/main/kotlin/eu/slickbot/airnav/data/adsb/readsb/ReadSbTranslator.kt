@@ -14,6 +14,11 @@ class ReadSbTranslator(
   private val clock: Clock = Clock.systemUTC(),
 ) {
 
+  companion object {
+    private const val FEET_TO_M = 0.3048
+    private const val KNOTS_TO_MS = 0.514444
+  }
+
   fun toSnapshot(response: ReadSbJv2Response): ReadSbSnapshot {
     val capturedAt = resolveCapturedAt(response)
     val reports = response.aircraft.mapNotNull { toReport(it, capturedAt) }
@@ -106,10 +111,5 @@ class ReadSbTranslator(
     val value = raw?.trim() ?: return null
     if (value.isBlank()) return null
     return value
-  }
-
-  companion object {
-    private const val FEET_TO_M = 0.3048
-    private const val KNOTS_TO_MS = 0.514444
   }
 }
