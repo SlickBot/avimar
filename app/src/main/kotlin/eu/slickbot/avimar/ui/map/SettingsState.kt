@@ -1,7 +1,6 @@
 package eu.slickbot.avimar.ui.map
 
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 data class SettingsState(
   val aisApiKey: String?,
@@ -12,7 +11,6 @@ data class SettingsState(
   val hideGrounded: Boolean,
   val markerScale: Float,
   val adsbPollInterval: Duration,
-  val requestTimeout: Duration,
   val minAltitudeM: Int?,
   val maxAltitudeM: Int?,
   val hiddenAircraftCategories: Set<String>,
@@ -29,7 +27,6 @@ data class SettingsState(
       hideGrounded = false,
       markerScale = 1f,
       adsbPollInterval = Duration.ZERO,
-      requestTimeout = 15.seconds,
       minAltitudeM = null,
       maxAltitudeM = null,
       hiddenAircraftCategories = emptySet(),
@@ -48,7 +45,6 @@ interface SettingsActions {
   fun setHideGrounded(hide: Boolean)
   fun setMarkerScale(scale: Float)
   fun setAdsbPollInterval(interval: Duration)
-  fun setRequestTimeout(timeout: Duration)
   fun setMinAltitudeM(meters: Int?)
   fun setMaxAltitudeM(meters: Int?)
   fun toggleHiddenAircraftCategory(code: String)

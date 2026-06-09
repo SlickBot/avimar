@@ -16,7 +16,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 class AisRepository(
-  private val client: AisStreamClient = AisStreamClient(),
+  private val client: AisStreamClient,
   private val store: AisReportStore = AisReportStore(
     entryTtl = java.time.Duration.ofMinutes(10),
     snapshotMinInterval = java.time.Duration.ZERO,

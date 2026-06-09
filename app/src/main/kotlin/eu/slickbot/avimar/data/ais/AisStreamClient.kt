@@ -23,9 +23,17 @@ import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 
 class AisStreamClient(
-  private val baseClient: OkHttpClient = defaultClient(),
-  private val json: Json = defaultJson(),
+  baseClient: OkHttpClient,
+  private val json: Json,
 ) {
+
+  // Long-lived websocket: no read timeout, app-level ping keepalive. Derived from the shared
+  // client so it reuses the connection pool and thread pools rather than starting a new engine.
+  private val client = baseClient.newBuilder()
+    .connectTimeout(15, TimeUnit.SECONDS)
+    .pingInterval(20, TimeUnit.SECONDS)
+    .readTimeout(0, TimeUnit.SECONDS)
+    .build()
 
   companion object {
     private const val TAG = "AisStreamClient"
@@ -34,18 +42,6 @@ class AisStreamClient(
 
     private const val SERVER_ERROR_CLOSE = 4001
     private const val SUBSCRIPTION_FAIL_CLOSE = 4002
-
-    fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
-      .connectTimeout(15, TimeUnit.SECONDS)
-      .pingInterval(20, TimeUnit.SECONDS)
-      .readTimeout(0, TimeUnit.SECONDS)
-      .build()
-
-    fun defaultJson(): Json = Json {
-      ignoreUnknownKeys = true
-      isLenient = true
-      coerceInputValues = true
-    }
   }
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -92,7 +88,7 @@ class AisStreamClient(
       .header("Origin", "http://stream.aisstream.io")
       .build()
 
-    webSocket = baseClient.newWebSocket(request, object : WebSocketListener() {
+    webSocket = client.newWebSocket(request, object : WebSocketListener() {
       override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.i(TAG, "WebSocket open")
         translatedDuringSession = 0L

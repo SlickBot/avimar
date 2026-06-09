@@ -17,10 +17,9 @@ class BoundedTtlCache<K : Any, V : Any>(
 
   private data class Entry<V>(val value: V, val storedAt: Instant)
 
-  private val map: LinkedHashMap<K, Entry<V>> =
-    object : LinkedHashMap<K, Entry<V>>(16, 0.75f, /* accessOrder = */ true) {
-      override fun removeEldestEntry(eldest: Map.Entry<K, Entry<V>>): Boolean = size > maxSize
-    }
+  private val map = object : LinkedHashMap<K, Entry<V>>(16, 0.75f, /* accessOrder = */ true) {
+    override fun removeEldestEntry(eldest: Map.Entry<K, Entry<V>>): Boolean = size > maxSize
+  }
 
   private val lock = Any()
 

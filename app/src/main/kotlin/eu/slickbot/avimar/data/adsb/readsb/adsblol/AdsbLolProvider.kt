@@ -19,6 +19,7 @@ class AdsbLolProvider(
   private val maxRadiusNm: Int = 250,
   clock: Clock = Clock.systemUTC(),
 ) {
+
   private val readSbProvider = ReadSbPointProvider(
     baseUrl = baseUrl,
     tag = "adsblol",

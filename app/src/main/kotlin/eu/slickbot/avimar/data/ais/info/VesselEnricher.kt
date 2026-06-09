@@ -12,23 +12,22 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 class VesselEnricher(
-  private val client: OkHttpClient = defaultClient(),
+  baseClient: OkHttpClient,
   private val vesselFinderParser: VesselFinderParser = VesselFinderParser(),
   private val myShipTrackingParser: MyShipTrackingParser = MyShipTrackingParser(),
 ) {
 
+  // Scrapes HTML pages: follow redirects with a slightly longer read window. Derived from the
+  // shared client so it reuses the connection pool and thread pools.
+  private val client = baseClient.newBuilder()
+    .readTimeout(20, TimeUnit.SECONDS)
+    .followRedirects(true)
+    .followSslRedirects(true)
+    .build()
+
   companion object {
     private const val TAG = "VesselEnricher"
     private const val USER_AGENT = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
-
-    fun defaultClient(): OkHttpClient {
-      return OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(20, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .build()
-    }
   }
 
   private val cache = ConcurrentHashMap<Long, Optional>()

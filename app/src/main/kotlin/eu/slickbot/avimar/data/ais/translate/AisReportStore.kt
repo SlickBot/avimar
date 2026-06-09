@@ -23,8 +23,6 @@ class AisReportStore(
     require(!snapshotMinInterval.isNegative) { "snapshotMinInterval must not be negative" }
   }
 
-  private data class Entry(val report: AisReport, val ingestedAt: Instant)
-
   private val lock = Any()
   private val reportsByMmsi = LinkedHashMap<Long, Entry>()
 
@@ -130,14 +128,6 @@ class AisReportStore(
       timestamp = new.timestamp ?: prev.timestamp,
     )
   }
-}
 
-data class AisStreamHealth(
-  val vesselCount: Int,
-  val translatedCount: Long,
-  val lastRawMessageAt: Instant?,
-  val lastTranslatedAt: Instant?,
-  val snapshotAt: Instant?,
-  val rawMessageAge: Duration?,
-  val translatedAge: Duration?,
-)
+  private data class Entry(val report: AisReport, val ingestedAt: Instant)
+}

@@ -20,9 +20,9 @@ open class BaseHttpFetcher(
 
   fun fetchUrl(tag: String, url: String): String {
     val uri = URI.create(url)
-    val path = (if (uri.rawPath.isNullOrBlank()) "/" else uri.rawPath) +
-      (if (!uri.rawQuery.isNullOrBlank()) "?${uri.rawQuery}" else "")
-    return fetch(tag, uri.scheme + "://" + uri.authority, path)
+    val path = if (uri.rawPath.isNullOrBlank()) "/" else uri.rawPath
+    val query = if (!uri.rawQuery.isNullOrBlank()) "?${uri.rawQuery}" else ""
+    return fetch(tag, uri.scheme + "://" + uri.authority, path + query)
   }
 
   fun fetchUrlOrNull(tag: String, url: String): String? {

@@ -7,8 +7,7 @@ import kotlinx.serialization.json.JsonNames
 
 @Serializable
 data class ReadSbJv2Response(
-  @SerialName("ac") @JsonNames("aircraft")
-  val aircraft: List<ReadSbJv2Aircraft> = emptyList(),
+  @SerialName("ac") @JsonNames("aircraft") val aircraft: List<ReadSbJv2Aircraft> = emptyList(),
   @SerialName("now") val timestampSeconds: Double? = null,
   @SerialName("ctime") val cacheTimestampMs: Double? = null,
 )

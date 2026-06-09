@@ -115,9 +115,6 @@ private fun AviationTab(
   ChipSelector("Refresh interval", POLL_PRESETS, selected = { (_, d) -> state.adsbPollInterval == d }, label = { (l, _) -> l }) {
     actions.setAdsbPollInterval(it.second)
   }
-  LabeledSlider("Request timeout: ${state.requestTimeout.inWholeSeconds}s", state.requestTimeout.inWholeSeconds.toFloat(), 5f..60f, steps = 10) {
-    actions.setRequestTimeout(it.toInt().seconds)
-  }
   ToggleRow("Hide grounded aircraft", state.hideGrounded, actions::setHideGrounded)
   AltitudeFilter(state, actions)
 }

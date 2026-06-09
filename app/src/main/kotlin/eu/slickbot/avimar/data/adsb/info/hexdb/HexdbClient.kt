@@ -47,6 +47,8 @@ class HexdbClient(
   }
 
   private fun encode(value: String): String {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8.name()).replace("+", "%20")
+    return URLEncoder
+      .encode(value, StandardCharsets.UTF_8.name())
+      .replace("+", "%20")
   }
 }

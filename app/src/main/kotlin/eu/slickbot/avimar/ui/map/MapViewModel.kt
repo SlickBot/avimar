@@ -14,12 +14,10 @@ import eu.slickbot.avimar.data.ais.Vessel
 import eu.slickbot.avimar.data.ais.info.VesselDetails
 import eu.slickbot.avimar.data.ais.info.VesselEnricher
 import eu.slickbot.avimar.data.ais.translate.AisStreamHealth
-import eu.slickbot.avimar.data.common.NetworkTuning
 import eu.slickbot.avimar.data.location.LatLon
 import eu.slickbot.avimar.data.location.LocationProvider
 import eu.slickbot.avimar.data.search.RecentEntity
 import eu.slickbot.avimar.data.search.SearchHistoryRepository
-import eu.slickbot.avimar.data.settings.SecureKeyStore
 import eu.slickbot.avimar.data.settings.SettingsRepository
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
@@ -44,6 +42,7 @@ import kotlin.math.ceil
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 sealed interface MapSelection {
   data class Plane(val aircraft: Aircraft) : MapSelection
@@ -56,7 +55,6 @@ class MapViewModel(
   private val adsbRepo: AdsbRepository,
   private val aisRepo: AisRepository,
   private val settings: SettingsRepository,
-  private val secureStore: SecureKeyStore,
   private val locationProvider: LocationProvider,
   private val aircraftInfoProvider: AircraftInfoProvider,
   private val vesselEnricher: VesselEnricher,
@@ -69,6 +67,9 @@ class MapViewModel(
 
   private val _viewport = MutableStateFlow<Viewport?>(null)
   private val _aircraft = MutableStateFlow<List<Aircraft>>(emptyList())
+
+  // Monotonic mark of the last ADS-B fetch, used to rate-limit across viewport changes.
+  private var lastAdsbFetch: TimeSource.Monotonic.ValueTimeMark? = null
 
   private val aircraftFilter: StateFlow<AircraftFilter> = combine(
     settings.minAltitudeM,
@@ -120,10 +121,10 @@ class MapViewModel(
   val trailsEnabled: StateFlow<Boolean> = settings.trailsEnabled.eager(true)
   val aviationVisible: StateFlow<Boolean> = settings.aviationVisible.eager(true)
   val maritimeVisible: StateFlow<Boolean> = settings.maritimeVisible.eager(true)
-  val aisApiKey: StateFlow<String?> = secureStore.aisApiKey.eager(null)
+  val aisApiKey: StateFlow<String?> = settings.aisApiKey.eager(null)
 
   val settingsState: StateFlow<SettingsState> = combine(
-    secureStore.aisApiKey,
+    settings.aisApiKey,
     settings.aisEnabled,
     settings.trailsEnabled,
     settings.aviationVisible,
@@ -131,7 +132,6 @@ class MapViewModel(
     settings.hideGrounded,
     settings.markerScale,
     settings.adsbPollInterval,
-    settings.requestTimeout,
     settings.minAltitudeM,
     settings.maxAltitudeM,
     settings.hiddenAircraftCategories,
@@ -148,12 +148,11 @@ class MapViewModel(
       hideGrounded = values[5] as Boolean,
       markerScale = values[6] as Float,
       adsbPollInterval = values[7] as Duration,
-      requestTimeout = values[8] as Duration,
-      minAltitudeM = values[9] as Int?,
-      maxAltitudeM = values[10] as Int?,
-      hiddenAircraftCategories = values[11] as Set<String>,
-      hiddenVesselCategories = values[12] as Set<String>,
-      hiddenVesselStatuses = values[13] as Set<String>,
+      minAltitudeM = values[8] as Int?,
+      maxAltitudeM = values[9] as Int?,
+      hiddenAircraftCategories = values[10] as Set<String>,
+      hiddenVesselCategories = values[11] as Set<String>,
+      hiddenVesselStatuses = values[12] as Set<String>,
     )
   }.eager(SettingsState.Empty)
 
@@ -228,10 +227,6 @@ class MapViewModel(
 
   init {
     viewModelScope.launch {
-      settings.requestTimeout.collect { NetworkTuning.callTimeout = it }
-    }
-
-    viewModelScope.launch {
       combine(
         _viewport.filterNotNull().debounce(300.milliseconds),
         provider,
@@ -241,9 +236,16 @@ class MapViewModel(
           val interval = if (pollInterval > Duration.ZERO) pollInterval else p.minPollInterval
           flow {
             while (true) {
+              // Enforce the minimum interval across viewport changes, not just within one
+              // poll loop: panning restarts this flow, so without this a new viewport would
+              // fetch immediately and ignore the rate limit. flatMapLatest coalesces to the
+              // latest viewport while we wait.
+              val sinceLast = lastAdsbFetch?.elapsedNow()
+              val wait = if (sinceLast == null) Duration.ZERO else interval - sinceLast
+              if (wait > Duration.ZERO) delay(wait)
+              lastAdsbFetch = TimeSource.Monotonic.markNow()
               fetchAdsb(p, vp)
               emit(Unit)
-              delay(interval)
             }
           }
         }
@@ -323,7 +325,7 @@ class MapViewModel(
 
   // SettingsActions overrides
 
-  override fun setAisApiKey(value: String?) { secureStore.setAisApiKey(value) }
+  override fun setAisApiKey(value: String?) { edit { setAisApiKey(value) } }
   override fun setAisEnabled(enabled: Boolean) { edit { setAisEnabled(enabled) } }
   override fun setTrailsEnabled(enabled: Boolean) { edit { setTrailsEnabled(enabled) } }
   override fun setAviationVisible(visible: Boolean) { edit { setAviationVisible(visible) } }
@@ -331,7 +333,6 @@ class MapViewModel(
   override fun setHideGrounded(hide: Boolean) { edit { setHideGrounded(hide) } }
   override fun setMarkerScale(scale: Float) { edit { setMarkerScale(scale) } }
   override fun setAdsbPollInterval(interval: Duration) { edit { setAdsbPollInterval(interval) } }
-  override fun setRequestTimeout(timeout: Duration) { edit { setRequestTimeout(timeout) } }
   override fun setMinAltitudeM(meters: Int?) { edit { setMinAltitudeM(meters) } }
   override fun setMaxAltitudeM(meters: Int?) { edit { setMaxAltitudeM(meters) } }
 

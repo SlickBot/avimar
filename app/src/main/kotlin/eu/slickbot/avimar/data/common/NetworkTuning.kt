@@ -5,6 +5,5 @@ import kotlin.time.Duration.Companion.seconds
 
 object NetworkTuning {
 
-  @Volatile
-  var callTimeout: Duration = 15.seconds
+  val callTimeout: Duration = 15.seconds
 }

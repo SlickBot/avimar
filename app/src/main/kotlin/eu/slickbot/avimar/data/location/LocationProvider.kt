@@ -45,5 +45,3 @@ class LocationProvider(context: Context) {
     add(LocationManager.GPS_PROVIDER)
   }
 }
-
-data class LatLon(val lat: Double, val lon: Double)

@@ -19,12 +19,12 @@ import eu.slickbot.avimar.data.adsb.readsb.adsbfi.AdsbFiProvider
 import eu.slickbot.avimar.data.adsb.readsb.adsblol.AdsbLolProvider
 import eu.slickbot.avimar.data.adsb.readsb.airplaneslive.AirplanesLiveProvider
 import eu.slickbot.avimar.data.ais.AisRepository
+import eu.slickbot.avimar.data.ais.AisStreamClient
 import eu.slickbot.avimar.data.ais.info.VesselEnricher
 import eu.slickbot.avimar.data.common.HttpTextFetcher
 import eu.slickbot.avimar.data.common.JsonTextFetcher
 import eu.slickbot.avimar.data.location.LocationProvider
 import eu.slickbot.avimar.data.search.SearchHistoryRepository
-import eu.slickbot.avimar.data.settings.SecureKeyStore
 import eu.slickbot.avimar.data.settings.SettingsRepository
 import eu.slickbot.avimar.ui.map.MapViewModel
 import kotlinx.serialization.json.Json
@@ -104,12 +104,12 @@ val dataModule = module {
       enricher = get(),
     )
   }
-  single { AisRepository() }
+  single { AisStreamClient(baseClient = get(), json = get()) }
+  single { AisRepository(client = get()) }
   single { SettingsRepository(androidContext()) }
   single { SearchHistoryRepository(androidContext(), get()) }
-  single { SecureKeyStore(androidContext()) }
   single { LocationProvider(androidContext()) }
-  single { VesselEnricher() }
+  single { VesselEnricher(baseClient = get()) }
 }
 
 val viewModelModule = module {
@@ -118,7 +118,6 @@ val viewModelModule = module {
       adsbRepo = get(),
       aisRepo = get(),
       settings = get(),
-      secureStore = get(),
       locationProvider = get(),
       aircraftInfoProvider = get(),
       vesselEnricher = get(),

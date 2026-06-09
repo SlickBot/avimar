@@ -17,12 +17,13 @@ class ThrowingRateLimitedFetcher<Q, R>(
     clock: Clock = Clock.systemUTC(),
   ) : this(
     fetcher = fetcher,
-    limits = if (minInterval.isZero || minInterval.isNegative) emptyList()
-    else listOf(RateLimit(maxUnits = 1, window = minInterval)),
+    limits = if (minInterval.isZero || minInterval.isNegative) {
+      emptyList()
+    } else {
+      listOf(RateLimit(maxUnits = 1, window = minInterval))
+    },
     clock = clock,
   )
-
-  private data class Entry(val time: Instant, val cost: Int)
 
   private val lock = Any()
   private val history = ArrayDeque<Entry>()
@@ -58,4 +59,6 @@ class ThrowingRateLimitedFetcher<Q, R>(
     }
     return fetcher(query)
   }
+
+  private data class Entry(val time: Instant, val cost: Int)
 }
