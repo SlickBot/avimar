@@ -1,5 +1,6 @@
 package eu.slickbot.avimar.data.adsb.info.doc8643
 
+import eu.slickbot.avimar.data.common.isHttpUrl
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 
@@ -106,6 +107,7 @@ class Doc8643Parser {
         if (label.lowercase() in ignored) return@mapNotNull null
         val href = a.absUrl("href").ifBlank { resolveUrl(baseUrl, a.attr("href")) }
         if (href.isBlank()) return@mapNotNull null
+        if (!isHttpUrl(href)) return@mapNotNull null
         if (href.contains("/aircraft/")) return@mapNotNull null
         if (!href.contains(designator, ignoreCase = true) && !label.contains(designator, ignoreCase = true)) {
           return@mapNotNull null

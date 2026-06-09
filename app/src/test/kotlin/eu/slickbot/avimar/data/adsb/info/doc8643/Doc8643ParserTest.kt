@@ -86,4 +86,18 @@ class Doc8643ParserTest {
     assertNotNull(r.image)
     assertTrue(r.image!!.endsWith("/static/img/aircraft/AB95.png"))
   }
+
+  @Test
+  fun `non-http link schemes are rejected, https links survive`() {
+    val html = """
+      <html><body>
+        <div class="detail-header"><h1>AB95</h1></div>
+        <a href="intent://evil#Intent;scheme=foo;end">AB95 evil tracker</a>
+        <a href="market://details?id=com.evil">AB95 market</a>
+        <a href="https://tracker.example.com/AB95">AB95 tracker</a>
+      </body></html>
+    """.trimIndent()
+    val r = parser.parseDetail(html, baseUrl = "https://doc8643.com", requestedDesignator = "AB95")
+    assertEquals(listOf("https://tracker.example.com/AB95"), r.links.map { it.url })
+  }
 }

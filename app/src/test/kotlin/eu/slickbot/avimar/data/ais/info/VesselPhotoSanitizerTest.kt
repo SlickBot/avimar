@@ -45,6 +45,18 @@ class VesselPhotoSanitizerTest {
   }
 
   @Test
+  fun `non-http schemes are dropped`() {
+    val urls = listOf(
+      "file:///data/data/eu.slickbot.avimar/databases/secret.db",
+      "content://com.android.providers/photo/1",
+      "data:image/png;base64,AAAA",
+      "javascript:alert(1)",
+      "https://x/real.jpg",
+    )
+    assertEquals(listOf("https://x/real.jpg"), sanitizeVesselPhotoUrls(urls))
+  }
+
+  @Test
   fun `isPlaceholderPhotoUrl flags known patterns`() {
     assertTrue(isPlaceholderVesselPhotoUrl("https://x/welcome.png"))
     assertTrue(isPlaceholderVesselPhotoUrl("HTTPS://X/IMAGES/cool-ship2@2.PNG"))

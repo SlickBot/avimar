@@ -1,8 +1,11 @@
 package eu.slickbot.avimar.data.ais.info
 
+import eu.slickbot.avimar.data.common.isHttpUrl
+
 internal fun sanitizeVesselPhotoUrls(urls: List<String>): List<String> {
   return urls.asSequence()
     .mapNotNull { it.trim().ifBlank { null } }
+    .filter { isHttpUrl(it) }
     .filterNot { isPlaceholderVesselPhotoUrl(it) }
     .distinct()
     .toList()
