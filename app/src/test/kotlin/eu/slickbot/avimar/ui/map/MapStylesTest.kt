@@ -1,56 +1,78 @@
 package eu.slickbot.avimar.ui.map
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class MapStylesTest {
 
+  private val rasterStyles = listOf(TileStyle.Osm, TileStyle.EsriSatellite)
+
+  private fun inlineRoot(style: TileStyle): JsonObject {
+    val spec = MapStyles.spec(style)
+    assertTrue("$style should be inline", spec is MapStyleSpec.Inline)
+    return Json.parseToJsonElement((spec as MapStyleSpec.Inline).json).jsonObject
+  }
+
   private fun tiles(style: TileStyle): String {
-    val root = Json.parseToJsonElement(MapStyles.styleJson(style)).jsonObject
-    val source = root["sources"]!!.jsonObject[MapStyles.RASTER_SOURCE_ID]!!.jsonObject
+    val source = inlineRoot(style)["sources"]!!.jsonObject[MapStyles.RASTER_SOURCE_ID]!!.jsonObject
     assertEquals("raster", source["type"]!!.jsonPrimitive.content)
     return source["tiles"]!!.jsonArray.joinToString(" ") { it.jsonPrimitive.content }
   }
 
-  @Test
-  fun `every style yields valid json with a raster source`() {
-    TileStyle.entries.forEach { tiles(it) }
+  private fun remoteUrl(style: TileStyle): String {
+    val spec = MapStyles.spec(style)
+    assertTrue("$style should be remote", spec is MapStyleSpec.Remote)
+    return (spec as MapStyleSpec.Remote).url
   }
 
   @Test
-  fun `tile urls match the expected providers`() {
-    assertTrue(tiles(TileStyle.CartoDark).contains("dark_all"))
-    assertTrue(tiles(TileStyle.CartoLight).contains("light_all"))
-    assertTrue(tiles(TileStyle.CartoVoyager).contains("rastertiles/voyager"))
+  fun `vector styles load keyless openfreemap styles`() {
+    assertEquals("https://tiles.openfreemap.org/styles/dark", remoteUrl(TileStyle.Dark))
+    assertEquals("https://tiles.openfreemap.org/styles/positron", remoteUrl(TileStyle.Light))
+    assertEquals("https://tiles.openfreemap.org/styles/liberty", remoteUrl(TileStyle.Streets))
+  }
+
+  @Test
+  fun `raster tile urls match the expected providers`() {
     assertTrue(tiles(TileStyle.Osm).contains("tile.openstreetmap.org"))
     assertTrue(tiles(TileStyle.EsriSatellite).contains("World_Imagery"))
   }
 
   @Test
-  fun `carto styles expand to four subdomains`() {
-    val urls = tiles(TileStyle.CartoDark)
-    listOf("a.basemaps", "b.basemaps", "c.basemaps", "d.basemaps").forEach {
-      assertTrue("expected subdomain $it", urls.contains(it))
+  fun `no style points at carto`() {
+    TileStyle.entries.forEach { style ->
+      val text = when (val spec = MapStyles.spec(style)) {
+        is MapStyleSpec.Remote -> spec.url
+        is MapStyleSpec.Inline -> spec.json
+      }
+      assertFalse("$style still uses CARTO", text.contains("cartocdn"))
     }
   }
 
   @Test
-  fun `style declares a glyphs endpoint so symbol text renders`() {
-    val root = Json.parseToJsonElement(MapStyles.styleJson(TileStyle.CartoDark)).jsonObject
-    val glyphs = root["glyphs"]!!.jsonPrimitive.content
-    assertTrue(glyphs.contains("{fontstack}") && glyphs.contains("{range}"))
+  fun `raster styles declare openfreemap glyphs so marker text renders`() {
+    rasterStyles.forEach { style ->
+      val glyphs = inlineRoot(style)["glyphs"]!!.jsonPrimitive.content
+      assertTrue(glyphs.startsWith("https://tiles.openfreemap.org/fonts/"))
+      assertTrue(glyphs.contains("{fontstack}") && glyphs.contains("{range}"))
+    }
   }
 
   @Test
-  fun `style declares a background layer and the raster layer`() {
-    val root = Json.parseToJsonElement(MapStyles.styleJson(TileStyle.Osm)).jsonObject
-    val layerIds = root["layers"]!!.jsonArray.map { it.jsonObject["id"]!!.jsonPrimitive.content }
-    assertTrue(layerIds.contains("background"))
-    assertTrue(layerIds.contains(MapStyles.RASTER_LAYER_ID))
+  fun `raster styles declare a background layer and the raster layer`() {
+    rasterStyles.forEach { style ->
+      val layerIds = inlineRoot(style)["layers"]!!.jsonArray.map {
+        it.jsonObject["id"]!!.jsonPrimitive.content
+      }
+      assertTrue(layerIds.contains("background"))
+      assertTrue(layerIds.contains(MapStyles.RASTER_LAYER_ID))
+    }
   }
 }

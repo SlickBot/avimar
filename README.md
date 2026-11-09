@@ -20,7 +20,7 @@ sources. Aircraft positions come from readsb-style feeds
 ([adsb.fi](https://adsb.fi), [adsb.lol](https://adsb.lol),
 [airplanes.live](https://airplanes.live)), ship positions stream over WebSocket
 from [aisstream.io](https://aisstream.io), and the map is rendered with
-[MapLibre](https://maplibre.org) over CARTO, OpenStreetMap and Esri imagery
+[MapLibre](https://maplibre.org) over [OpenFreeMap](https://openfreemap.org), OpenStreetMap and Esri imagery
 tiles.
 
 ## Screenshots
@@ -39,7 +39,7 @@ tiles.
   MMSI and type.
 - **Map** - a MapLibre map with marker selection and a detail sheet for the
   selected aircraft or vessel, category filters, and switchable tile styles
-  (CARTO Dark / Light / Voyager, OpenStreetMap, and an Esri satellite view).
+  (OpenFreeMap Dark / Light / Streets, OpenStreetMap, and an Esri satellite view).
 - **Your location** - shows your position on the map.
 
 **The feeds and parsers are fragile.** The public ADS-B and AIS endpoints, and

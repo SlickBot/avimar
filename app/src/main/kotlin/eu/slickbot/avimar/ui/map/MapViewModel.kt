@@ -116,7 +116,7 @@ class MapViewModel(
   }.whileSubscribed(null)
 
   val provider: StateFlow<AdsbProvider> = settings.adsbProvider.eager(AdsbProvider.AdsbFi)
-  val tileStyle: StateFlow<TileStyle> = settings.tileStyle.eager(TileStyle.CartoDark)
+  val tileStyle: StateFlow<TileStyle> = settings.tileStyle.eager(TileStyle.Dark)
   val aisEnabled: StateFlow<Boolean> = settings.aisEnabled.eager(true)
   val trailsEnabled: StateFlow<Boolean> = settings.trailsEnabled.eager(true)
   val aviationVisible: StateFlow<Boolean> = settings.aviationVisible.eager(true)

@@ -84,8 +84,11 @@ class MapController(private val map: MapLibreMap) {
       return
     }
     currentStyleId = id
-    val tile = TileStyle.fromId(id)
-    map.setStyle(Style.Builder().fromJson(MapStyles.styleJson(tile))) { loaded ->
+    val builder = when (val spec = MapStyles.spec(TileStyle.fromId(id))) {
+      is MapStyleSpec.Remote -> Style.Builder().fromUri(spec.url)
+      is MapStyleSpec.Inline -> Style.Builder().fromJson(spec.json)
+    }
+    map.setStyle(builder) { loaded ->
       onStyleLoaded(loaded)
     }
   }

@@ -49,7 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
-import coil.compose.AsyncImage
+import coil3.compose.AsyncImage
 import eu.slickbot.avimar.R
 import eu.slickbot.avimar.data.adsb.Aircraft
 import eu.slickbot.avimar.data.adsb.info.AircraftFlightAirport
