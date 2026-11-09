@@ -6,8 +6,8 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
-val appVersionName = "0.1.0"
-val appVersionCode = 1
+val appVersionName = "1.1"
+val appVersionCode = 2
 
 android {
   namespace = "eu.slickbot.avimar"
@@ -129,7 +129,6 @@ dependencies {
   testImplementation(libs.robolectric)
   testImplementation(libs.androidx.test.ext.junit)
 
-  androidTestImplementation(platform(libs.androidx.compose.bom))
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
 }
